@@ -1,0 +1,42 @@
+{
+  "name": "omegas-dev",
+  "version": "0.1.3",
+  "description": "Review and transfer Claude Code and Codex setup into Omegas",
+  "type": "module",
+  "bin": {
+    "omegas-dev": "bin/omegas-dev.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "SECURITY.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "homepage": "https://omegas.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OmegaAgent/omega.git",
+    "directory": "packages/omegas-dev-cli"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check bin/omegas-dev.js && node --check src/*.js",
+    "pack:dry-run": "npm pack --dry-run",
+    "prepublishOnly": "npm test && npm run check"
+  },
+  "keywords": [
+    "omegas",
+    "claude-code",
+    "codex",
+    "mcp",
+    "onboarding"
+  ],
+  "license": "MIT"
+}
