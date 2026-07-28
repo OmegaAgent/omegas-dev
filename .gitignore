@@ -1,0 +1,5 @@
+.DS_Store
+node_modules/
+*.tgz
+coverage/
+omegas-transfer-preview-*.json

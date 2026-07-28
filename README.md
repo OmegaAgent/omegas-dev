@@ -1,62 +1,140 @@
 # omegas-dev
 
-`omegas-dev` is the user-initiated migration helper for Omegas. It discovers Claude Code and
-Codex context, skills, project memories, and MCP server metadata, then opens an authenticated
-review before anything is applied.
+**Your Claude Code and Codex setup, in one view.**
 
-```sh
-npx omegas-dev
-```
-
-The CLI is read-only on your source files. It has no dependencies, install scripts, background
-process, or telemetry. Release builds upload only to `https://api.omegas.dev` and accept browser
-claims only from `https://omegas.dev`.
-
-## What happens
-
-1. The CLI inventories the current project and documented Claude/Codex global entrypoints.
-2. It creates a mode-`0600` local preview in Downloads and opens a 15-minute browser claim.
-3. The browser and terminal show the same confirmation phrase and masked account. You must confirm
-   that match in the terminal; `--yes` never skips this step.
-4. The encrypted payload is staged for review. Projects can become new Spaces or map to Spaces you
-   already own.
-5. Selected context and skills are stored as progressively disclosed Space wiki sources. They are
-   not appended to the base system prompt.
-6. MCP definitions appear as disconnected proposals. Tokens are never copied; remote servers must
-   be authorized again, and local stdio servers are not activated in the cloud.
-
-Symlinks are not followed. Files are checked again before they are read, credential-shaped context
-is excluded, raw Claude/Codex configuration is never uploaded, and absolute filesystem paths are
-not included in the transfer manifest.
-
-## Optional secret-file transfer
-
-Secrets are a separate yes/no choice. If you opt in, you select `.env*` files by filename rather
-than selecting individual variables. Those files are fingerprinted during discovery and read only
-after the authenticated claim; a changed file aborts the transfer. The API seals the values
-immediately, and the browser receives only filename, environment label, and variable count.
-
-Imported secret files are stored per Space under Settings. Omegas does not automatically inject
-them into agents or MCP servers. Delete them there when they are no longer needed.
-
-## Inspect before uploading
+`omegas-dev` is an open-source, local-first CLI for visualizing, understanding, and
+transferring your personal AI coding configuration. It turns scattered instructions,
+skills, memories, and MCP server definitions into one structured preview you can inspect
+before deciding what moves with you.
 
 ```sh
 npx omegas-dev --dry-run
 ```
 
-The preview contains the context that would be transferred and should be treated as sensitive. It
-is created with mode `0600`; remove it after review. Use `--no-open` to copy the browser link
-manually. Add more project roots with repeated `--root` flags:
+The dry run stays local. It scans documented Claude Code and Codex configuration
+entrypoints, writes a readable JSON preview to `~/Downloads`, and does not contact Omegas
+or upload anything.
+
+## Why this exists
+
+Your working setup is larger than one dotfile. It accumulates across global and project
+directories:
+
+- instructions such as `CLAUDE.md` and `AGENTS.md`
+- personal and project skills
+- project memories and rules
+- MCP server names, transports, commands, and environment variable names
+- optional project `.env*` files, handled through a separate explicit flow
+
+That makes it difficult to answer simple questions: What have I configured? Which parts
+belong to Claude or Codex? What is global? What is project-specific? What can I safely move?
+
+`omegas-dev` builds that map without following symlinks, printing secrets, or silently
+uploading your files.
+
+## What it understands
+
+| Area | Claude Code | Codex |
+| --- | --- | --- |
+| Instructions | `CLAUDE.md`, `.claude/CLAUDE.md`, rules | `AGENTS.md`, `.codex/AGENTS.md` |
+| Skills | Global and project `SKILL.md` files | Global and project `SKILL.md` files |
+| Memory | Project memory and `.claude/memory` | `.codex/memories` |
+| MCP | `.claude.json`, `.mcp.json`, Claude settings | `.codex/config.toml` |
+| Scope | Global configuration and discovered projects | Global configuration and discovered projects |
+
+The resulting manifest keeps source and scope visible, so you can understand where each
+item came from instead of receiving an opaque archive.
+
+## Inspect locally
 
 ```sh
-npx omegas-dev --root ~/Code --root ~/Work
+npx omegas-dev --dry-run
 ```
 
-Local development APIs require both the explicit unsafe flag and a loopback URL:
+Add one or more roots when your projects live elsewhere:
 
 ```sh
-node bin/omegas-dev.js --unsafe-development-api --api http://localhost:8080
+npx omegas-dev --dry-run --root ~/Code --root ~/Work
 ```
 
-See [SECURITY.md](SECURITY.md) for the trust model and private reporting instructions.
+The preview contains transferable context and should be treated as sensitive. It is
+created with mode `0600`; remove it when you are finished reviewing it.
+
+## Review and transfer
+
+Run without `--dry-run` to open the authenticated Omegas review flow:
+
+```sh
+npx omegas-dev
+```
+
+The transfer sequence is deliberately explicit:
+
+1. The CLI inventories documented Claude Code and Codex entrypoints.
+2. A short-lived browser claim binds the terminal to your signed-in account.
+3. The terminal and browser show the same confirmation phrase and masked account.
+4. A local preview is written before any configuration is uploaded.
+5. You approve or cancel the upload in the terminal.
+6. The browser shows the imported instructions, skills, memories, MCP proposals, and
+   project mapping for final review.
+
+The discovery and preview code is fully open source in this repository. The optional
+hosted review and import destination is [Omegas](https://omegas.dev).
+
+## Privacy and security boundaries
+
+- Source files are read-only.
+- Symlinks are not followed.
+- Files are size-limited and checked for changes while being read.
+- Credential-shaped context files are excluded from the manifest.
+- MCP values are reduced to metadata; tokens, authorization headers, URL queries, and
+  token-shaped arguments are removed.
+- Raw Claude Code and Codex configuration files are never uploaded as opaque blobs.
+- Absolute filesystem paths are not included in the manifest.
+- There are no runtime dependencies, install scripts, background processes, or telemetry.
+- Release builds connect only to `https://api.omegas.dev` and `https://omegas.dev`.
+
+Optional `.env*` transfer is separate from normal discovery. Files are selected by name,
+read only after account confirmation, and sent as encrypted secret bundles. Their variable
+names and values never appear in the local preview.
+
+Read [SECURITY.md](SECURITY.md) for the complete trust model and private reporting process.
+
+## CLI options
+
+```text
+Usage: npx omegas-dev [options]
+
+  --root <dir>   Root to scan (repeatable; defaults to the current directory)
+  --output <file> Sensitive local preview path
+  --dry-run      Discover and write the preview without contacting Omegas
+  --no-open      Print the browser link without opening it
+  --yes          Open the browser automatically; upload still requires confirmation
+  --help         Show command help
+```
+
+The development-only `--api` override requires `--unsafe-development-api` and accepts only
+HTTPS or loopback origins.
+
+## Development
+
+Requires Node.js 20 or newer.
+
+```sh
+npm test
+npm run check
+npm run pack:dry-run
+```
+
+The CLI intentionally uses only Node.js standard-library modules. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for contribution boundaries and the local workflow.
+
+## Project status
+
+`omegas-dev` is early, working software. The current `0.1.x` line is used for the Omegas
+configuration import flow, and its discovery, redaction, preview, and transfer behavior is
+covered by the public test suite. Issues and focused pull requests are welcome.
+
+## License
+
+[MIT](LICENSE)

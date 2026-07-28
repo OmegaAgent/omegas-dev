@@ -1,8 +1,7 @@
 # Publishing `omegas-dev`
 
-GitHub Actions has been removed, so the `Publish omegas-dev` workflow is gone. It was
-manual-trigger only, so nothing published automatically before either — but the steps it ran
-are recorded here so the path is not lost.
+Publishing is intentionally manual. A release must correspond to a reviewed commit and tag in
+this public repository.
 
 From `packages/omegas-dev-cli`:
 
@@ -16,4 +15,5 @@ npm view "omegas-dev@$VERSION" version >/dev/null 2>&1 \
   || npm publish
 ```
 
-Requires an npm auth token with publish rights for the package.
+Requires npm publish rights for the package. After publishing, verify the npm metadata points to
+this repository and that the packed files match the tagged source.
