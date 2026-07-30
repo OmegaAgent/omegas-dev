@@ -9,6 +9,7 @@
   "files": [
     "bin",
     "src",
+    "docs",
     "README.md",
     "SECURITY.md",
     "LICENSE"
@@ -30,7 +31,7 @@
   },
   "scripts": {
     "test": "node --test",
-    "check": "node --check bin/omegas-dev.js && node --check src/*.js",
+    "check": "node --check bin/omegas-dev.js && node --check src/*.js && node --check src/cli/*.js && node --check src/core/adapters/*.js && node --check src/core/engine/*.js && node --check src/core/formats/*.js && node --check src/core/fsx/*.js && node --check src/core/model/*.js && node --check src/core/policy/*.js",
     "pack:dry-run": "npm pack --dry-run",
     "prepublishOnly": "npm test && npm run check"
   },

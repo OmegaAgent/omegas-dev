@@ -1,0 +1,3 @@
+prefix_rule(["git", "status"], decision = "allow")
+prefix_rule(["curl", "-H", "Authorization: Bearer FAKE-RULES-TOKEN-0000"], decision = "allow")
+prefix_rule(["rm", "-rf"], decision = "forbidden")

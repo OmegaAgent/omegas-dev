@@ -1,0 +1,43 @@
+{
+  "model": "sonnet-5",
+  "effortLevel": "high",
+  "outputStyle": "default",
+  "env": {
+    "OMEGA_FEATURE_FLAGS": "teams",
+    "SLACK_BOT_TOKEN": "xoxb-000000000000-FAKEFAKEFAKEFAKEFAKE"
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "/Users/fixture/.claude/statusline.sh"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Read(/Users/fixture/.claude/worktrees/deleted-branch/**)",
+      "Bash(*)"
+    ],
+    "deny": [
+      "Bash(git push:*)"
+    ],
+    "ask": [],
+    "defaultMode": "acceptEdits"
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "__HOME__/.claude/hooks/notify.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "/Users/fixture/.claude/hooks/missing.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

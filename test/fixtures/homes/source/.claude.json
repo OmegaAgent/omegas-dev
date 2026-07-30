@@ -1,0 +1,56 @@
+{
+  "installMethod": "2.1.220",
+  "userID": "fixture-user-id",
+  "machineID": "fixture-machine-id",
+  "oauthAccount": {
+    "accountUuid": "fixture-account",
+    "emailAddress": "fixture@example.test"
+  },
+  "customApiKeyResponses": {
+    "approved": [
+      "FAKE"
+    ]
+  },
+  "cachedStatsigGates": {
+    "some_gate": true
+  },
+  "mcpServers": {
+    "elevenlabs": {
+      "command": "uvx",
+      "args": [
+        "elevenlabs-mcp"
+      ],
+      "env": {
+        "ELEVENLABS_API_KEY": "sk-proj-FAKEFAKEFAKEFAKEFAKEFAKE"
+      }
+    },
+    "analytics": {
+      "url": "https://mcp.example.test/analytics",
+      "headers": {
+        "Authorization": "Bearer FAKE-BEARER-000000000000"
+      }
+    }
+  },
+  "projects": {
+    "__HOME__/projects/app": {
+      "hasTrustDialogAccepted": true,
+      "mcpServers": {
+        "local_tool": {
+          "command": "node",
+          "args": [
+            "./tool.js"
+          ]
+        }
+      }
+    },
+    "__HOME__/projects/untrusted": {
+      "hasTrustDialogAccepted": false
+    },
+    "__HOME__/projects/monorepo": {
+      "hasTrustDialogAccepted": true
+    },
+    "__HOME__/projects/agents-only": {
+      "hasTrustDialogAccepted": true
+    }
+  }
+}

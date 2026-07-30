@@ -1,0 +1,40 @@
+# Codex configuration (fixture)
+model = "gpt-5-codex"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[orchestrator]
+mode = "auto"
+
+[shell_environment_policy]
+set = { CI = "1" }
+
+[mcp_servers.node_repl]
+command = "node"
+args = ["--experimental-repl"]
+startup_timeout_sec = 10
+env = { NODE_REPL_TRUSTED_CODE_PATHS = "/opt/tools", GITHUB_TOKEN = "ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKE" }
+
+[mcp_servers.analytics]
+url = "https://mcp.example.test/analytics"
+http_headers = { Authorization = "Bearer FAKE-BEARER-000000000000" }
+
+[[hooks.PreToolUse]]
+matcher = "Bash"
+
+  [[hooks.PreToolUse.hooks]]
+  type = "command"
+  command = "__HOME__/.codex/hooks/guard.sh"
+
+# Trust state and hook trust hashes are never exported.
+[hooks.state]
+"config.toml:PreToolUse:0:0" = { trusted_hash = "FAKEHASH0000" }
+
+[projects."__HOME__/projects/app"]
+trust_level = "trusted"
+
+[projects."__HOME__/projects/untrusted"]
+trust_level = "untrusted"
+
+[tui]
+theme = "dark"

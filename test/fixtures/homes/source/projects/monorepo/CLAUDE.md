@@ -1,0 +1,3 @@
+# Monorepo root
+
+Shared conventions.

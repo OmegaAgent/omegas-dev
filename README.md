@@ -45,6 +45,40 @@ uploading your files.
 The resulting manifest keeps source and scope visible, so you can understand where each
 item came from instead of receiving an opaque archive.
 
+## Explain a setup, read-only
+
+Two subcommands read your configuration and explain it. They write nothing, upload
+nothing, and open no network socket or subprocess.
+
+```sh
+npx omegas-dev scan --root ~/Code       # what is configured, in one summary
+npx omegas-dev report --root ~/Code     # the same scan, with the reasoning shown
+npx omegas-dev scan --json              # the machine-readable envelope
+```
+
+`report` answers the question no other tool does: **why is this the effective value?** It
+prints each contested setting with its winner, every contributor that lost, and the reason
+each one lost — including the cases that surprise people, such as a broad user-scope `deny`
+outranking a narrow project-scope `allow` because severity beats layer precedence.
+
+It is equally explicit about what it did *not* read. A symlink pointing outside every known
+directory becomes a listed node with a reason, not a silent skip; a file over the size cap
+is truncated and reported with both sizes; every path excluded by policy is named along with
+the rule that excluded it. Deliberate absence is data — silence is a bug.
+
+| Option | Meaning |
+| --- | --- |
+| `--home <dir>` | Home directory to read (default: yours) |
+| `--root <dir>` | Project root to scan, repeatable |
+| `--json` | Emit the result envelope on stdout |
+| `--max-file-bytes <n>` | Per-file read cap; a breach is truncated and reported, never dropped |
+
+Exit codes: `0` success, `1` usage error, `2` no supported runtime found, `3` completed with
+warnings, `10` a detected runtime is older than this tool supports.
+
+`docs/ARCHITECTURE.md` describes how this is built and which guarantees are enforced by
+tests rather than by convention.
+
 ## Inspect locally
 
 ```sh

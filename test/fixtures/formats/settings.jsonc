@@ -1,0 +1,13 @@
+{
+  // Comments and a trailing comma: legal here, and they must survive a patch untouched.
+  "editor.tabSize": 2, /* an inline block comment */
+  "files.associations": {
+    "*.mdx": "markdown",
+    "*.pen": "json",
+  },
+  /* A block comment
+     spanning two lines. */
+  "omegas.enabled": true,
+  "omegas.docs": "https://docs.example.test/guide", // the // inside that value is not a comment
+  "omegas.model": "claude-opus-4-6",
+}

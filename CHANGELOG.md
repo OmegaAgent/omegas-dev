@@ -1,5 +1,36 @@
 # Changelog
 
+## Unreleased
+
+The read-only core of Continuity. Two new subcommands explain a configuration; the hosted
+transfer flow is unchanged and is still reached by a bare invocation and its own flags.
+
+- `omegas-dev scan` and `omegas-dev report` read every declared configuration surface and
+  explain it: what is configured, which layer it came from, and why a given value wins.
+  Both are read-only, and `src/core/` contains no network module, no subprocess and no
+  dependency — each asserted by a test rather than promised.
+- Runtimes are now described by **data, not code**. An adapter is one inert object
+  declaring locations, merge semantics, trust tiers and never-export rules; a single engine
+  walks it. Adding a runtime is adding a file. Tests fail the build if an adapter grows a
+  function, or if the engine mentions a runtime by name.
+- Precedence is computed rather than asserted. Seven merge algebras are implemented, and
+  the report shows each contested value with its winner, every contributor that lost and
+  the reason — including severity outranking layer precedence, and layers suppressed
+  because a runtime does not trust that project.
+- Item identity is deterministic and derived from whatever the runtime itself treats as the
+  identity, replacing the random per-run key that made re-import and diffing impossible.
+  Nested packages in one repository now collapse onto that repository instead of fanning
+  out into unrelated projects.
+- Refusals became data. A symlink resolving outside every known directory is a listed node
+  with a reason; an over-cap file is truncated and recorded with both sizes; every policy
+  exclusion is reported with its rule, a count and a unit.
+- Configuration is read losslessly. Undocumented keys survive verbatim and are reported as
+  findings rather than rewritten or dropped, and edits are applied as byte-range patches so
+  comments, key order and formatting cannot be lost.
+- Six lints ship, each grounded in a condition found on a real machine — including a hook
+  silently muted by a sentinel file, and a permission rule pointing at a directory that no
+  longer exists.
+
 ## 0.1.5
 
 Hardening release. No new surfaces are read and nothing new is uploaded.

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "claude-opus-4-6",
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(npm test)",
+      "Read(~/omegas-dev/**)",
+      "WebFetch(domain:docs.anthropic.com)"
+    ],
+    "deny": ["Bash(rm -rf *)"],
+    "defaultMode": "acceptEdits"
+  },
+  "env": {
+    "OMEGA_FEATURE_FLAGS": "teams",
+    "ANTHROPIC_API_KEY": "sk-ant-FAKEFAKEFAKE"
+  },
+  "mcpServers": {
+    "slack": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-slack"],
+      "env": { "SLACK_BOT_TOKEN": "xoxb-FAKE-FAKE-FAKE" }
+    }
+  },
+  "includeCoAuthoredBy": false,
+  "cleanupPeriodDays": 30,
+  "escapes": "tab\there \"quoted\" and é"
+}
