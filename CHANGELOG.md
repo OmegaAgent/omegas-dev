@@ -1,10 +1,87 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
-The core of Continuity. New subcommands explain a configuration, export it as a redacted
-bundle, and land it on another machine; the hosted transfer flow is unchanged and is still
-reached by a bare invocation and its own flags.
+The Continuity release. New subcommands explain a configuration, export it as a redacted
+bundle, land it on another machine, and say what would survive a move to a different
+runtime; the hosted transfer flow is unchanged and is still reached by a bare invocation
+and its own flags.
+
+### Compatibility, derived rather than maintained
+
+- `omegas-dev compat` prints what would survive moving a configuration between runtimes:
+  a matrix of NATIVE / CONVERT / ADVISE / UNSUPPORTED / UNKNOWN, the losses behind every
+  CONVERT, the source-only keys that survive a move but are ignored on the other side, and
+  the evidence citation behind each verdict. `report` carries the same table as a section.
+- **There is no hand-written matrix anywhere in the codebase.** Every cell is computed from
+  the two adapters' capability declarations plus the transform table, and a golden test
+  compares the computed table against the researched verdicts, cell by cell. Two cells
+  disagree with the research; both are named in the test with the reason, rather than
+  quietly adjusted (see *Known limits*).
+- Kind-level and item-level verdicts are separate questions. `mcp_server` converts
+  Claude → Codex as a kind, and an individual entry declaring a websocket transport is
+  UNSUPPORTED for that entry alone — reported as an exception against its kind's headline,
+  because a matrix on its own would misrepresent it.
+- Some losses are **computed, not declared**: a key in an item's `unrecognized` bag is
+  checked against what the target format can physically hold, so a null-valued key headed
+  for TOML is listed as a loss without anyone having written it down. This is what keeps
+  the loss list from drifting as the runtimes add keys.
+- UNKNOWN and UNSUPPORTED stay different claims. UNSUPPORTED means checked and impossible;
+  UNKNOWN means not built. Every cell involving an unsurveyed runtime reads UNKNOWN, and
+  that runtime is listed rather than hidden — so "we don't support Hermes" can never be
+  mistaken for "you don't have Hermes". The same applies at item level: an MCP entry using
+  the SSE transport, whose Codex status the research could not confirm either way, is
+  UNKNOWN rather than a negative nobody earned.
+- A CONVERT that lists no loss is now a build failure: the adapter registry rejects any
+  transform declaring `fidelity: "convert"` with an empty `drops[]`, because a conversion
+  that loses nothing is a relocation and should say so.
+
+### The local HTML report
+
+- `omegas-dev report --html <out.html> --bundle <bundle.ocb.jsonl>` writes ONE
+  self-contained page: environment and runtimes, items by kind with provenance and
+  portability verdicts, every contested value with its winner and the reason each
+  contributor lost, the derived compatibility matrix with its losses, findings, the
+  redaction summary, and the refusals and limits with their units.
+- It is **rendered from the redacted bundle and from nothing else**. The renderer takes a
+  bundle path, verifies it through the same reader an importer uses, and refuses any input
+  that is not a sealed manifest — including one wearing the right `schema_version` while
+  carrying engine-internal fields. There is no code path from a live scan to a shareable
+  page, which is the point: the screenshot of a raw scan is the leak.
+- It references nothing on a network. No script tag, no stylesheet link, no font, no image,
+  no `fetch`, no telemetry, and no JavaScript at all — a test asserts the absence of every
+  request-initiating construct, and the page declares a `default-src 'none'` policy on top.
+  Values are escaped text, so a URL you configured shows up as characters rather than as
+  something a browser would load.
+- Light and dark are both handled by `prefers-color-scheme`, with the whole stylesheet
+  inline. The file lands `0600`: a complete picture of a configuration is safe to
+  screenshot deliberately, which is not the same as safe to leave world-readable.
+
+### Cutover parity
+
+- `src/hosted/local-transfer-v1.js` projects a Continuity bundle into the legacy
+  `omegas.local-transfer.v1` payload the hosted API already accepts. It is a pure function
+  of the manifest — no filesystem, no network, no clock — and it is deliberately **not
+  wired into the upload path**; a test asserts no shipping module imports it.
+- Parity is proven, not asserted: both scanners run over the same fixture homes in-test and
+  every file, skill and MCP server the legacy scanner finds is matched field for field.
+  Every difference is enumerated with its reason — deterministic project keys instead of a
+  fresh random key per run, redacted content instead of raw bytes, and no whole-file
+  dropping for looking credential-like.
+- The comparison also documents three things the new scanner finds and the old one misses:
+  `AGENTS.override.md` (whose entire semantic is replacing `AGENTS.md`), a skill reached
+  through a symlink that stays inside a declared root, and the environment variable names
+  of an MCP server declared with a TOML inline table, which the old line-based scanner
+  could not parse. `docs/CUTOVER.md` records what parity has been proven, what has not, and
+  the rollback story.
+
+### Release engineering
+
+- Every release gate is a named npm script — `gate:purity`, `gate:secrets`, `gate:network`,
+  `gate:adversarial`, `gate:noop`, `gate:compat`, `gate:cutover` — and each runs as its own
+  step in CI across Node 20, 22 and 24, so a failure names the property that broke. CI also
+  asserts zero production dependencies and that no test or fixture file can be published.
+- `docs/RELEASE_CHECKLIST.md` gates publishing, starting with the blocking founder item.
 
 - `omegas-dev diff` previews exactly what importing a bundle would write, and writes
   nothing at all — no staging directory, no ledger line, no temp file, asserted by a
@@ -99,6 +176,37 @@ reached by a bare invocation and its own flags.
   on read, where a violation is a refusal rather than a repair.
 - `docs/BUNDLE_FORMAT.md` publishes the format: digest algorithm and scope, canonicalization
   rules, placeholder grammar, redaction header, caps and `payload_policy`.
+
+### Known limits
+
+Carried forward and added to, because a release that only lists what works is advertising.
+
+- **Shapeless high-entropy values are still not detected by shape.** An AWS secret access
+  key or a bare hex string with nothing naming it is caught only when it sits in a declared
+  secret position. This is unchanged from 0.1.5; the entropy layer narrowed it, it did not
+  close it.
+- **Cross-runtime transfer is preview and report only.** Claude ⇄ Codex conversions are
+  derived, explained and shown in the write plan, and `import` refuses to apply them.
+  Same-runtime (machine → machine) is the only path that writes.
+- **Two compatibility cells disagree with the research**, both about the same fact placed
+  in a different row. `permission_rule` codex → claude derives UNSUPPORTED because Codex
+  declares no surface of that kind, and `rule_script` codex → claude derives ADVISE because
+  a transform for it is declared with an evidence citation. The research's §3.2 table puts
+  the advisory verdict in the first row and UNSUPPORTED in the second. Both are asserted in
+  `test/compat.test.js` with the reasoning, and neither expectation was edited to match the
+  code.
+- **Coverage gaps are ours, not the runtimes'.** `omegas-dev compat` lists every kind a
+  runtime supports that Continuity does not yet read — Codex hook scripts and keybindings
+  today — so a surface nobody has implemented never reads as a capability that does not
+  exist.
+- **Transcripts, history and session state are out of scope by design**, not pending. They
+  are the highest-density secret store on a developer machine and no rule reads them.
+- **Claude's auto-memory items carry the munged project directory name**, which encodes the
+  absolute project path of the machine that produced them. That name reaches the bundle.
+  It is a filesystem-layout disclosure inside an artifact meant to be shareable; the fix is
+  tokenizing that path segment, and it is tracked as the first item after this release.
+- **No Hermes adapter.** It exists as an identity with zero surfaces and is reported as
+  UNKNOWN everywhere, which is the honest state rather than a gap being hidden.
 
 ## 0.1.5
 

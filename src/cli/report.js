@@ -2,9 +2,10 @@
 // questions the manifest exists to make answerable without opening a source file:
 // what is configured, where did it come from, and why is this the effective value.
 
+import { cellOf } from "../core/compat/derive.js";
 import { counts, table, tally, truncate, warningsFor } from "./scan.js";
 
-export function renderReport({ result, env }) {
+export function renderReport({ result, env, compat = null }) {
   const out = [];
   const section = (title) => {
     out.push("");
@@ -99,7 +100,57 @@ export function renderReport({ result, env }) {
   }
   if (contested.length > 40) out.push(`  … ${contested.length - 40} more contested rows`);
 
-  section("5  FINDINGS");
+  section("5  COMPATIBILITY");
+  if (!compat) {
+    out.push("not computed for this view");
+  } else {
+    out.push("Derived from the adapters' declarations — there is no hand-maintained matrix to go stale.");
+    out.push("NATIVE moves as-is · CONVERT moves with the losses named below · ADVISE is a proposal for a");
+    out.push("human · UNSUPPORTED was checked and cannot be done · UNKNOWN has not been built (a different");
+    out.push("claim) · n/a means neither runtime declares this kind.");
+    out.push("");
+    const present = compat.profiles.filter((profile) => profile.status !== "declared");
+    const columns = present.flatMap((source) => present.map((target) => [source.id, target.id]));
+    out.push(
+      table(
+        ["kind", ...columns.map(([from, to]) => `${from.slice(0, 4)}->${to.slice(0, 4)}`)],
+        compat.rows.map((row) => [
+          row.kind,
+          ...columns.map(([from, to]) => {
+            const cell = cellOf(compat.rows, row.kind, from, to);
+            return cell ? (cell.applicable ? cell.verdict : "n/a") : "-";
+          }),
+        ]),
+      ),
+    );
+    const exceptions = compat.reports.flatMap((report) =>
+      report.exceptions.map((entry) => ({ from: report.from, to: report.to, ...entry })),
+    );
+    if (exceptions.length > 0) {
+      out.push("");
+      out.push(`${exceptions.length} item(s) depart from their kind's headline verdict:`);
+      for (const entry of exceptions) {
+        out.push(`  ${entry.from} -> ${entry.to}  ${entry.item_id}`);
+        out.push(`     kind says ${entry.kind_verdict}, this item is ${entry.verdict}: ${entry.item_exception?.reason ?? ""}`);
+      }
+    }
+    const computed = compat.reports.flatMap((report) =>
+      report.items.flatMap((entry) =>
+        entry.losses.filter((loss) => !loss.declared).map((loss) => ({ item_id: entry.item_id, ...loss })),
+      ),
+    );
+    if (computed.length > 0) {
+      out.push("");
+      out.push("Losses computed from the items' own unrecognized keys:");
+      for (const loss of computed) {
+        out.push(`  ${loss.item_id}  ${loss.key_path} (${loss.value_shape} -> ${loss.target_format}): ${loss.reason}`);
+      }
+    }
+    out.push("");
+    out.push("Run `omegas-dev compat` for the per-cell losses, inert keys and evidence.");
+  }
+
+  section("6  FINDINGS");
   if (result.findings.length === 0) {
     out.push("none");
   } else {
@@ -118,7 +169,7 @@ export function renderReport({ result, env }) {
     for (const finding of result.findings) out.push(`  ${finding.finding_id}: ${finding.message}`);
   }
 
-  section("6  REDACTIONS");
+  section("7  REDACTIONS");
   // The report renders the REDACTED model, like every other consumer: the raw scan has no
   // path to a rendering layer, because the screenshot of this output is the leak (T-R8).
   out.push(
@@ -149,7 +200,7 @@ export function renderReport({ result, env }) {
     out.push("Values are gone; key names, positions and counts are not. Run `export` for a shareable bundle.");
   }
 
-  section("7  REFUSALS AND LIMITS");
+  section("8  REFUSALS AND LIMITS");
   out.push("Deliberate absence is data. Every rule that fired is listed; silence would be the bug.");
   out.push("");
   if (result.exclusions.length === 0) {

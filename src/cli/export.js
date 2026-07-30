@@ -198,12 +198,26 @@ async function writeAtomic(target, text) {
   await rename(temporary, target);
 }
 
+/**
+ * The compatibility snapshot (milestone M4). It carries everything `compat/derive.js`
+ * reads — capability levels, the declared surfaces with their formats, and the transform
+ * descriptors — so the matrix in a report is DERIVED from the bundle months later rather
+ * than trusted from whatever version happens to be installed then. It is also why the
+ * HTML report can be a pure function of a bundle file.
+ */
 export function capabilitiesOf(adapters) {
   return adapters.map((adapter) => ({
     runtime: adapter.id,
+    display_name: adapter.display_name ?? adapter.id,
     adapter_version: adapter.adapter_version,
     status: adapter.status,
     kinds: adapter.capabilities ?? {},
+    surfaces: (adapter.surfaces ?? []).map((surface) => ({
+      surface_id: surface.surface_id,
+      kind: surface.kind,
+      format: surface.format,
+    })),
+    transforms: adapter.transforms ?? [],
   }));
 }
 

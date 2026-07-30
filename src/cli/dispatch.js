@@ -2,14 +2,18 @@
 // (adapter-architecture §6.1). Codes and the envelope are part of the published
 // contract with the hosted layer and change only with a major version.
 
+import { mkdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { ADAPTERS } from "../core/adapters/registry.js";
+import { BundleError } from "../core/bundle/names.js";
 import { PAYLOAD_POLICIES } from "../core/bundle/write.js";
 import { buildEnvironment } from "../core/engine/environment.js";
 import { runScan } from "../core/engine/pipeline.js";
+import { buildCompat, compatEnvelope, renderCompat } from "./compat.js";
 import { runDiff } from "./diff.js";
+import { htmlFromBundleFile } from "./html.js";
 import { runExport } from "./export.js";
 import { runEnable, runImport, terminalIo } from "./import.js";
 import { renderReport } from "./report.js";
@@ -35,8 +39,9 @@ export const EXIT = {
   VERSION_INCOMPATIBLE: 10,
 };
 
-const COMMANDS = new Set(["scan", "report", "export", "diff", "import", "enable"]);
+const COMMANDS = new Set(["scan", "report", "export", "diff", "import", "enable", "compat"]);
 const IMPORT_COMMANDS = new Set(["diff", "import", "enable"]);
+const RUNTIME_IDS = new Set(ADAPTERS.map((adapter) => adapter.id));
 
 export function isSubcommand(argv) {
   return argv.length > 0 && COMMANDS.has(argv[0]);
@@ -47,6 +52,7 @@ export function commandHelp() {
     `Usage: omegas-dev <command> [options]\n\n` +
     `  scan     Read every declared configuration surface and print what was found\n` +
     `  report   The same scan, rendered as a multi-section report\n` +
+    `  compat   The derived compatibility matrix, its losses, and per-item exceptions\n` +
     `  export   Write a redacted, content-addressed bundle you can share\n` +
     `  diff     Preview exactly what importing a bundle would write. Writes nothing\n` +
     `  import   Walk the same plan and apply only what you consent to, item by item\n` +
@@ -59,6 +65,11 @@ export function commandHelp() {
     `  --out <path>          export only: where to write the bundle\n` +
     `  --payload-policy <p>  export only: ${PAYLOAD_POLICIES.join(" | ")} (default: definition)\n` +
     `  --bundle <path>       diff / import: the bundle to read\n` +
+    `                        report --html: the redacted bundle the page is rendered from\n` +
+    `  --html <path>         report only: write ONE self-contained HTML page from --bundle.\n` +
+    `                        No network reference of any kind, no script, no telemetry\n` +
+    `  --from <runtime>      compat only: restrict the matrix to this source runtime\n` +
+    `  --to <runtime>        compat only: restrict the matrix to this target runtime\n` +
     `  --yes-inert           import only: bulk-accept inert additions. Never covers an\n` +
     `                        authority item, an executable item, or a replacement\n` +
     `  --help, -h     Show this help\n\n` +
@@ -86,14 +97,32 @@ export function parseArgs(argv) {
     bundle: null,
     yesInert: false,
     itemId: null,
+    html: null,
+    from: null,
+    to: null,
   };
   for (let i = 1; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--bundle") {
       const value = argv[++i];
       if (!value) throw new UsageError("--bundle requires a path");
-      if (!IMPORT_COMMANDS.has(options.command)) throw new UsageError("--bundle applies to `diff` and `import` only");
+      if (!IMPORT_COMMANDS.has(options.command) && options.command !== "report") {
+        throw new UsageError("--bundle applies to `diff`, `import` and `report --html` only");
+      }
       options.bundle = value;
+    } else if (arg === "--html") {
+      const value = argv[++i];
+      if (!value) throw new UsageError("--html requires an output path");
+      if (options.command !== "report") throw new UsageError("--html applies to `report` only");
+      options.html = value;
+    } else if (arg === "--from" || arg === "--to") {
+      const value = argv[++i];
+      if (!value) throw new UsageError(`${arg} requires a runtime id`);
+      if (options.command !== "compat") throw new UsageError(`${arg} applies to \`compat\` only`);
+      if (!RUNTIME_IDS.has(value)) {
+        throw new UsageError(`${arg} must name a known runtime: ${[...RUNTIME_IDS].join(" | ")}`);
+      }
+      options[arg === "--from" ? "from" : "to"] = value;
     } else if (arg === "--yes-inert") {
       if (options.command !== "import") throw new UsageError("--yes-inert applies to `import` only");
       options.yesInert = true;
@@ -146,6 +175,18 @@ export function parseArgs(argv) {
   if (IMPORT_COMMANDS.has(options.command) && options.command !== "enable" && !options.bundle && !options.help) {
     throw new UsageError(`${options.command} requires --bundle <path>`);
   }
+  // The HTML page is rendered from a redacted bundle and from nothing else. Refusing the
+  // flag without one is the user-facing half of that invariant: there is no code path
+  // where a raw scan becomes a shareable artifact (THR §3.5).
+  if (options.html && !options.bundle && !options.help) {
+    throw new UsageError(
+      "report --html renders a redacted bundle, so it needs --bundle <path>. Run `omegas-dev export` first, " +
+        "then `omegas-dev report --html <out.html> --bundle <bundle.ocb.jsonl>`",
+    );
+  }
+  if (options.bundle && options.command === "report" && !options.html && !options.help) {
+    throw new UsageError("report --bundle is only meaningful with --html");
+  }
   if (options.command === "enable" && !options.itemId && !options.help) {
     throw new UsageError("enable requires an item id, e.g. `omegas-dev enable claude:user:hook:Stop.0.0`");
   }
@@ -187,6 +228,11 @@ export async function dispatch(argv, io = defaultIo()) {
     return runImport({ options, env, adapters: ADAPTERS, io: importIo });
   }
 
+  // The HTML page never sees a scan. It reads the bundle file itself, through the same
+  // verifying reader an importer uses, so there is no code path from live config to a
+  // rendered page (THR §3.5, T-R8).
+  if (options.html) return runHtmlReport({ options, io });
+
   const exporting = options.command === "export";
   const result = await runScan({
     adapters: ADAPTERS,
@@ -206,13 +252,76 @@ export async function dispatch(argv, io = defaultIo()) {
     });
   }
 
+  if (options.command === "compat") {
+    const compat = buildCompat({ adapters: ADAPTERS, result, from: options.from, to: options.to });
+    if (options.json) {
+      io.stdout(`${JSON.stringify(compatEnvelope({ code, compat, env }), null, 2)}\n`);
+      return code;
+    }
+    io.stdout(renderCompat({ compat, from: options.from, to: options.to }));
+    return code;
+  }
+
   if (options.json) {
     io.stdout(`${JSON.stringify(scanEnvelope({ command: options.command, code, result, env }), null, 2)}\n`);
     return code;
   }
 
-  io.stdout(options.command === "report" ? renderReport({ result, env }) : renderScan({ result, env }));
+  if (options.command === "report") {
+    const compat = buildCompat({ adapters: ADAPTERS, result });
+    io.stdout(renderReport({ result, env, compat }));
+    return code;
+  }
+  io.stdout(renderScan({ result, env }));
   return code;
+}
+
+/**
+ * `report --html`. Separate from the scan path on purpose: it takes a bundle path, and a
+ * bundle is the only thing it can take. The write is 0600 because the page is a complete
+ * picture of someone's configuration, and "safe to screenshot" is not the same claim as
+ * "safe to leave world-readable".
+ */
+export async function runHtmlReport({ options, io }) {
+  const bundlePath = path.resolve(options.bundle);
+  const target = path.resolve(options.html);
+  let html;
+  try {
+    html = await htmlFromBundleFile(bundlePath);
+  } catch (error) {
+    io.stderr(`${error.message}\n`);
+    return error instanceof BundleError ? error.exitCode ?? EXIT.INTEGRITY : EXIT.USAGE;
+  }
+  await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
+  await writeFile(target, html, { mode: 0o600 });
+  if (options.json) {
+    io.stdout(
+      `${JSON.stringify(
+        {
+          ok: true,
+          code: EXIT.OK,
+          command: "report",
+          schema_version: SCHEMA_VERSION,
+          html_path: target,
+          bundle_path: bundlePath,
+          bytes: Buffer.byteLength(html),
+          self_contained: true,
+          network_references: 0,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    return EXIT.OK;
+  }
+  io.stdout(
+    `html report         ${target}   (0600)\n` +
+      `rendered from       ${bundlePath}\n` +
+      `bytes               ${Buffer.byteLength(html)}\n\n` +
+      `One file, no network reference of any kind, no script, no telemetry. It is rendered\n` +
+      `from the redacted bundle, so it carries placeholders rather than values.\n`,
+  );
+  return EXIT.OK;
 }
 
 

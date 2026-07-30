@@ -7,6 +7,11 @@ A bundle is a file someone else made. It may have come from your own laptop, fro
 colleague, or from a stranger on the internet, and nothing in the file itself can tell you
 which. Everything below follows from treating it as the last of those three.
 
+Related: [BUNDLE_FORMAT.md](BUNDLE_FORMAT.md) for the artifact this reads,
+[ARCHITECTURE.md](ARCHITECTURE.md) for the engine and the compatibility derivation behind
+the cross-runtime verdicts, [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the gates that
+have to pass before any of this ships.
+
 ---
 
 ## The three commands

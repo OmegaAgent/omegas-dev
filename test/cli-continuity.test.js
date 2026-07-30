@@ -147,9 +147,10 @@ test("report renders every section a reader needs, and nothing was written", asy
       "2  ITEMS",
       "3  LAYERS",
       "4  EFFECTIVE VALUES",
-      "5  FINDINGS",
-      "6  REDACTIONS",
-      "7  REFUSALS AND LIMITS",
+      "5  COMPATIBILITY",
+      "6  FINDINGS",
+      "7  REDACTIONS",
+      "8  REFUSALS AND LIMITS",
     ]) {
       assert.ok(text.includes(section), `the report is missing "${section}"`);
     }

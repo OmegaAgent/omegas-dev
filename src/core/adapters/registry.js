@@ -3,11 +3,13 @@
 // is asserted rather than assumed: a fabricated surface list cannot land without a
 // citation attached to each entry.
 
+import { ITEM_EXCEPTION_OPS } from "../compat/transforms.js";
 import {
   ALGEBRAS,
   CANONICAL_KINDS,
   CAPABILITY_LEVELS,
   DISABLED_FORM_MODES,
+  FIDELITY,
   FORMATS,
   PORTABILITY_VERDICTS,
   SCOPES,
@@ -190,6 +192,20 @@ export function validateAdapters(adapters = ADAPTERS) {
       }
     }
 
+    // `capability` is the only input to the compat matrix (adapter-architecture §1.3), so
+    // a surface that exists while its kind is declared unrepresentable would make the
+    // matrix assert a verified negative about config this very adapter reads. The reverse
+    // gap — a capability declared with no surface yet — is a coverage gap, not a lie, and
+    // is reported by `compat` rather than refused here.
+    for (const surface of surfaces) {
+      const level = (adapter.capabilities || {})[surface.kind];
+      if (level === "unsupported") {
+        problems.push(
+          `${id}/${surface.surface_id}: declares kind "${surface.kind}" while capabilities.${surface.kind} says "unsupported"`,
+        );
+      }
+    }
+
     for (const lint of adapter.lints || []) {
       const label = `${id}/${lint.lint_id || "<unnamed lint>"}`;
       if (!nonEmptyString(lint.lint_id)) problems.push(`${label}: missing lint_id`);
@@ -214,9 +230,41 @@ export function validateAdapters(adapters = ADAPTERS) {
       if (!nonEmptyString(transform.transform_id)) problems.push(`${label}: missing transform_id`);
       if (!CANONICAL_KINDS.includes(transform.kind)) problems.push(`${label}: kind "${transform.kind}" is not a canonical kind`);
       if (!nonEmptyString(transform.evidence)) problems.push(`${label}: missing evidence citation`);
+      // A CONVERT verdict that lists no losses is the failure mode the whole compat
+      // engine exists to prevent: it reads as "this moves cleanly" when the reason it is
+      // not NATIVE is precisely that something is left behind.
+      if (transform.fidelity === "convert" && (transform.drops ?? []).length === 0) {
+        problems.push(`${label}: fidelity "convert" with an empty drops[] — a conversion that loses nothing is a relocation`);
+      }
+      problems.push(...validateItemExceptions(label, transform));
     }
   }
 
+  return problems;
+}
+
+/**
+ * A per-ITEM exception is the only place an adapter may contradict its own kind-level
+ * verdict, so each one has to be evaluable by the engine (closed operator set) and has to
+ * say what it claims and on whose authority.
+ */
+function validateItemExceptions(label, transform) {
+  const problems = [];
+  for (const exception of transform.item_exceptions ?? []) {
+    const at = `${label}/${exception.exception_id || "<unnamed exception>"}`;
+    if (!nonEmptyString(exception.exception_id)) problems.push(`${at}: missing exception_id`);
+    if (!exception.when || !ITEM_EXCEPTION_OPS.includes(exception.when.op)) {
+      problems.push(`${at}: when.op "${exception.when && exception.when.op}" is not one of ${ITEM_EXCEPTION_OPS.join(" | ")}`);
+    }
+    if (exception.when && !nonEmptyString(exception.when.at)) {
+      problems.push(`${at}: when.at must name the item path the operator reads`);
+    }
+    if (!FIDELITY.includes(exception.verdict)) {
+      problems.push(`${at}: verdict "${exception.verdict}" is not one of ${FIDELITY.join(" | ")}`);
+    }
+    if (!nonEmptyString(exception.reason)) problems.push(`${at}: missing reason — the exception is what the user reads`);
+    if (!nonEmptyString(exception.evidence)) problems.push(`${at}: missing evidence citation`);
+  }
   return problems;
 }
 

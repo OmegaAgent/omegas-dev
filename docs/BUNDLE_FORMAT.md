@@ -7,6 +7,11 @@ It is written for someone implementing a reader or writer independently, in any 
 The reference implementation is `src/core/bundle/` and `src/core/redact/` in this package;
 where this document and the code disagree, the document is the bug.
 
+Related: [ARCHITECTURE.md](ARCHITECTURE.md) for how the engine that produces a bundle is
+built and where the open/closed boundary sits, [IMPORT_MODEL.md](IMPORT_MODEL.md) for what a
+reader is allowed to do with one, [CUTOVER.md](CUTOVER.md) for the legacy payload shape this
+format replaces.
+
 ## 0. The invariant everything else rests on
 
 **A bundle never carries a credential value. Not encrypted, not sealed, not opt-in.**
@@ -69,7 +74,10 @@ filesystem target.
   "environment":  { "host": { "os", "arch", "home_label" }, "runtimes": [ … ] },
   "projects":     [ … ],
   "layers":       [ { "layer_id", "runtime", "scope", "rank", "source_label", "present", "suppressed_by" } ],
-  "capabilities": [ { "runtime", "adapter_version", "status", "kinds": { "<kind>": "native|convertible|advisory|unsupported" } } ],
+  "capabilities": [ { "runtime", "display_name", "adapter_version", "status",
+                      "kinds":      { "<kind>": "native|convertible|advisory|unsupported" },
+                      "surfaces":   [ { "surface_id", "kind", "format" } ],
+                      "transforms": [ TransformDescriptor ] } ],
   "items":        [ Item ],
   "effective":    [ EffectiveEntry ],
   "redactions":   [ RedactionEntry ],
@@ -81,11 +89,18 @@ filesystem target.
 }
 ```
 
-`capabilities[]` is a snapshot of the source adapter's own declarations, so the
-compatibility matrix is derivable from the bundle alone, on a machine running a different
-version of this tool. `policy.never_export[]` is the exclusion rule table as data — rule
-id, match pattern, class, severity and reason — so a reader can see what the exporter
-refused to look at and why.
+`capabilities[]` is a snapshot of the source adapters' own declarations, and it carries
+everything the compatibility engine reads: the capability level per kind, the declared
+surfaces with their formats, and the transform descriptors with their evidence citations.
+So the matrix is derivable **from the bundle alone**, on a machine running a different
+version of this tool, months later — and what it derives is *that bundle's* matrix rather
+than today's. A `status` of `declared` means the runtime was never surveyed, and every cell
+involving it derives `UNKNOWN` rather than `UNSUPPORTED`; the two are different claims and
+a reader must not collapse them.
+
+`policy.never_export[]` is the exclusion rule table as data — rule id, match pattern,
+class, severity and reason — so a reader can see what the exporter refused to look at and
+why.
 
 `bundle.complete` is `false` when any cap was hit (§7). A partial bundle is valid; a silent
 one would not be.

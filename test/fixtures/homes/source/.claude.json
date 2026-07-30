@@ -29,6 +29,15 @@
       "headers": {
         "Authorization": "Bearer FAKE-BEARER-000000000000"
       }
+    },
+    "realtime_feed": {
+      "type": "ws",
+      "url": "wss://mcp.example.test/stream"
+    },
+    "docs_search": {
+      "type": "http",
+      "url": "https://mcp.example.test/docs",
+      "experimentalRetry": null
     }
   },
   "projects": {

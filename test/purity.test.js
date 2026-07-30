@@ -94,8 +94,10 @@ test("engine/ is runtime-agnostic: no vendor name and no switch on a runtime id"
   }
 });
 
-test("fsx/, formats/, model/, policy/, redact/ and bundle/ are runtime-agnostic too", async () => {
-  for (const directory of ["fsx", "formats", "model", "policy", "redact", "bundle"]) {
+test("fsx/, formats/, model/, policy/, redact/, bundle/ and compat/ are runtime-agnostic too", async () => {
+  // compat/ is the interesting one: the compatibility matrix is ABOUT specific runtimes,
+  // and it still must not name one. Every runtime-specific fact reaches it as data.
+  for (const directory of ["fsx", "formats", "model", "policy", "redact", "bundle", "compat"]) {
     for (const file of await jsFiles(path.join(CORE, directory))) {
       const source = await readFile(file, "utf8");
       const label = path.relative(repoRoot, file);

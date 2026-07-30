@@ -1571,9 +1571,18 @@ export default {
       to: { runtime: "codex", surface_id: "codex.skills.repo" },
       operations: ["relocate", "transcode"],
       fidelity: "convert",
-      drops: [],
+      drops: [
+        "argument substitution ($ARGUMENTS, $ARGUMENTS[N], $N, $name): documented for a Claude command, undocumented for a Codex skill. COD §6.4 lists the fidelity of `Slash commands -> Skills` as a genuine UNKNOWN, so it is carried as a loss until someone measures it",
+      ],
       inert_on_target: ["allowed-tools", "disallowed-tools", "model"],
-      evidence: "COD §4.6 — Codex prompts are top-level, home-dir-only and DEPRECATED, so the default target for a project-scoped Claude command is a Codex SKILL, which keeps repo scope. OpenAI's own /import maps slash commands to skills, not prompts (MANUAL:26085).",
+      alternative_targets: [
+        {
+          surface_id: "codex.prompts",
+          drops: ["project scope", "nested command namespaces flatten to one level", "the surface itself is deprecated"],
+          why_not_default: "prompts are top-level and home-dir only, so a project-scoped command cannot be represented at all; OpenAI's own /import maps slash commands to skills (MANUAL:26085)",
+        },
+      ],
+      evidence: "COD §4.6 — Codex prompts are top-level, home-dir-only and DEPRECATED, so the default target for a project-scoped Claude command is a Codex SKILL, which keeps repo scope. OpenAI's own /import maps slash commands to skills, not prompts (MANUAL:26085). CLA §2.1 — a Claude command and a Claude skill already share one frontmatter set, so the file-to-directory move is lossless on the source side.",
     },
     {
       transform_id: "instructions.claude-to-codex",
@@ -1618,9 +1627,28 @@ export default {
       to: { runtime: "codex", surface_id: "codex.mcp" },
       operations: ["transcode"],
       fidelity: "convert",
-      drops: ["headersHelper", "alwaysLoad", "ws transport (item-level UNSUPPORTED)"],
+      drops: ["headersHelper", "alwaysLoad"],
       gains: ["inline env upgraded to the name-reference env_vars form", "inline headers upgraded to env_http_headers"],
       inert_on_target: [],
+      // The kind is CONVERT; these two entries are the reason a matrix alone would lie
+      // (§3.1 property 1). Both are per-ENTRY facts, so they are declared as data the
+      // engine evaluates against the item rather than prose inside `drops`.
+      item_exceptions: [
+        {
+          exception_id: "mcp.transport.ws",
+          when: { op: "value_in", at: "payload.parsed.value.type", values: ["ws", "websocket"] },
+          verdict: "UNSUPPORTED",
+          reason: "this entry declares a websocket transport, and Codex documents stdio and streamable HTTP only — there is no target form for it",
+          evidence: "COD §4.5 — the documented Codex transports are stdio and streamable HTTP; no websocket transport exists in 0.144.5",
+        },
+        {
+          exception_id: "mcp.transport.sse",
+          when: { op: "value_in", at: "payload.parsed.value.type", values: ["sse"] },
+          verdict: "UNKNOWN",
+          reason: "this entry uses the SSE transport, whose status on Codex could not be confirmed either way — presumed dropped, unverified, so the honest verdict is UNKNOWN rather than a negative we did not earn",
+          evidence: "COD §6.5 — 'SSE MCP transport status: documented nowhere in this manual; presumed dropped, unconfirmed'",
+        },
+      ],
       evidence: "COD §4.5 — Codex documents stdio and streamable HTTP only; SSE is undocumented in 0.144.5. The env → env_vars rewrite is a conversion that IMPROVES security.",
     },
     {
@@ -1633,6 +1661,20 @@ export default {
       drops: ["tools / disallowedTools (nearest is mcp_servers + skills.config)", "isolation", "color", "background", "permissionMode", "memory"],
       inert_on_target: [],
       evidence: "COD §4.13 — markdown body maps to developer_instructions; Codex has no per-agent tools allow-list field.",
+    },
+    {
+      transform_id: "setting.claude-to-codex",
+      kind: "setting",
+      from: { runtime: "claude", surface_id: "claude.settings.user" },
+      to: { runtime: "codex", surface_id: "codex.config.user" },
+      operations: ["advise"],
+      fidelity: "advisory",
+      drops: [
+        "few 1:1 key matches exist between settings.json and config.toml; most keys have no counterpart at all",
+        "which Claude keys survive the vendor's own /import is unmeasured, so no key map can be asserted as correct",
+      ],
+      inert_on_target: [],
+      evidence: "COD §3 row 2 — 'Global config: Low-fidelity — Claude uses settings.json; few 1:1 key matches'; COD §6.4 names the fidelity of settings.json -> config.toml as a genuine UNKNOWN that is measurable but has not been measured. An advisory proposal is the only output the evidence supports.",
     },
     {
       transform_id: "permission_rule.claude-to-codex",
