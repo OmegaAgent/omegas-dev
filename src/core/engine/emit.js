@@ -65,6 +65,8 @@ export const BLOCK_REASONS = {
   claim_mismatch:
     "this key belongs to another surface, and importing it under this one would apply that surface's rules instead of its owner's",
   no_quarantine: "this surface declares no disabled form, so an executable item cannot be written here inert",
+  quarantine_switch:
+    "this item lands disabled only if its OFF switch can also be written, and the switch target could not be prepared on this machine (unreadable, a symlink, or unresolvable); writing the body without its switch would import it live",
 };
 
 /**
@@ -226,10 +228,56 @@ async function planItem({ item, manifest, entries, adapters, env, present, roots
     quarantine: trustTier === "EXECUTABLE" && Boolean(surface.emit.disabled_form),
   };
 
-  if (emit.write_mode === "merge_key") return planKeyOperation(context);
-  if (emit.write_mode === "create_file") return planFileOperation(context);
-  if (emit.write_mode === "relocate_dir") return planDirectoryOperation(context);
-  return { blocked: block(item, "unsupported_write_mode", BLOCK_REASONS.unsupported_write) };
+  let planned;
+  if (emit.write_mode === "merge_key") planned = await planKeyOperation(context);
+  else if (emit.write_mode === "create_file") planned = await planFileOperation(context);
+  else if (emit.write_mode === "relocate_dir") planned = await planDirectoryOperation(context);
+  else return { blocked: block(item, "unsupported_write_mode", BLOCK_REASONS.unsupported_write) };
+  return coupleQuarantine(context, planned);
+}
+
+/**
+ * A quarantine is ONE atomic unit — the item's body plus the switch that disables it — and
+ * the two are consented as a single decision at the STRICTER class. This closes two ways a
+ * split could write a body live:
+ *
+ *   • Split consent class. A credential-quarantined skill's body is an inert `create_file`
+ *     (bulk) while its disable switch is a `merge_key` (individual). Accepting the bulk half
+ *     under `--yes-inert` wrote the SKILL.md and left `skillOverrides` off — a live skill the
+ *     tool called DISABLED. Every operation of a disabled item is re-bound here to the
+ *     switch's individual class, so none can ride a bulk accept and `--yes-inert` skips the
+ *     whole item.
+ *   • Missing switch. If a companion idiom needs a SEPARATE switch operation and one could
+ *     not be planned (the switch file is a symlink, unreadable, or unresolvable — see
+ *     `context.switchUnavailable`), a body on its own is a live import, so the whole item is
+ *     refused rather than half-applied. A switch that is ALREADY off is not a failure:
+ *     nothing needs writing, and the body is safe.
+ */
+function coupleQuarantine(context, planned) {
+  if (!planned.operations) return planned;
+  const live = planned.operations.filter((operation) => operation.action !== "skip");
+  if (!live.some((operation) => operation.disabled_on_write)) return planned;
+
+  const form = context.surface.emit.disabled_form;
+  const needsSwitch = Boolean(form) && (form.mode === "companion_key" || form.mode === "companion_entry");
+  const hasSwitch = live.some((operation) => operation.role === "quarantine");
+  if (needsSwitch && !hasSwitch && context.switchUnavailable) {
+    return { blocked: block(context.item, "quarantine_switch_unavailable", BLOCK_REASONS.quarantine_switch) };
+  }
+
+  for (const operation of live) {
+    operation.disabled_on_write = true;
+    if (operation.consent?.mode === "bulk") {
+      operation.consent = {
+        mode: "individual",
+        granted: false,
+        reason: "quarantined: it lands disabled, and turning it on is a second, deliberate action",
+      };
+      operation.bulk_barred = true;
+      operation.requires_enable = true;
+    }
+  }
+  return planned;
 }
 
 /**
@@ -544,15 +592,18 @@ async function planCompanion(context, writtenPath) {
   const companionSurface = (context.adapter.surfaces ?? []).find(
     (candidate) => candidate.surface_id === form.surface_id,
   );
-  if (!companionSurface?.emit?.target) return null;
+  // From here down a `null` return means the switch genuinely CANNOT be written on this
+  // machine — not that it is unnecessary. `coupleQuarantine` reads the flag and refuses the
+  // whole item, because a body written without its switch is a live import.
+  if (!companionSurface?.emit?.target) return switchUnavailable(context);
 
   const targetPath = expandTemplate(companionSurface.emit.target, context.env.tokens);
-  if (isUnresolved(targetPath)) return null;
+  if (isUnresolved(targetPath)) return switchUnavailable(context);
   const contained = await containedTarget(targetPath, context.roots);
-  if (!contained.ok) return null;
+  if (!contained.ok) return switchUnavailable(context);
   const format = companionSurface.format;
   const state = await keyedFileState(targetPath, context, format);
-  if (state.error) return null;
+  if (state.error) return switchUnavailable(context);
 
   const identity = String(context.item.identity?.value ?? context.item.name ?? "");
   let keyPath;
@@ -569,15 +620,17 @@ async function planCompanion(context, writtenPath) {
     value = { [form.match_key]: writtenPath, ...form.set };
   }
   const canonical = canonicalKeyPath(keyPath);
-  if (!canonical.ok) return null;
+  if (!canonical.ok) return switchUnavailable(context);
 
   const beforeValue = valueAt(state.tree, canonical.name);
+  // The switch is already off: nothing to write, and the body rides safely on the existing
+  // one. This is NOT a switch failure, so the flag stays clear and the item is not refused.
   if (deepEqual(beforeValue, value)) return null;
   let afterText;
   try {
     afterText = writeKey({ format, text: state.text, keyPath: canonical.name, value });
   } catch {
-    return null;
+    return switchUnavailable(context);
   }
   const display = displayFor(targetPath, context.env);
   const operation = baseOperation(context, {
@@ -587,6 +640,10 @@ async function planCompanion(context, writtenPath) {
     key_path: canonical.name,
     op_suffix: "quarantine",
   });
+  // The switch lives in the COMPANION surface's file (settings.json), not the skill's own
+  // md+frontmatter — `enable` must read it back with that surface's format, so the pin
+  // records the companion surface, not the item's.
+  operation.surface_id = companionSurface.surface_id;
   operation.role = "quarantine";
   operation.before = { ...state.before, value_present: beforeValue !== undefined };
   operation.after = { sha256: `sha256:${sha256(afterText)}`, bytes: Buffer.byteLength(afterText), entry: null };
@@ -790,6 +847,12 @@ async function danglingReferences(value, context) {
 
 function shouldQuarantine(context) {
   return Boolean(context.quarantine);
+}
+
+/** Records that a needed disable switch could not be planned, and returns no operation. */
+function switchUnavailable(context) {
+  context.switchUnavailable = true;
+  return null;
 }
 
 /**

@@ -45,6 +45,8 @@ jobs:
         run: npm run gate:compat
       - name: 'gate: cutover - the legacy-payload projection is still at parity'
         run: npm run gate:cutover
+      - name: 'gate: property - generated inputs hold the round-trip, containment, redaction and digest invariants'
+        run: npm run gate:property
       - name: 'gate: release - package contents, version agreement, docs cross-links'
         run: npm run gate:release
 

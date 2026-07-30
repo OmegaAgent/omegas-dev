@@ -153,6 +153,16 @@ test("the CLI prints help and exits cleanly", async () => {
   assert.ok(stdout.includes("--help, -h"));
 });
 
+test("top-level --help discloses the Continuity subcommands alongside the hosted flow", async () => {
+  const { stdout } = await run(process.execPath, [path.join(repoRoot, "bin", "omegas-dev.js"), "--help"]);
+  for (const command of ["scan", "report", "compat", "export", "diff", "import", "enable"]) {
+    assert.ok(stdout.includes(command), `top-level --help never mentions the ${command} subcommand`);
+  }
+  // Both worlds are named, so a reader can tell the local commands from the hosted transfer.
+  assert.match(stdout, /Continuity/, "the local commands are not identified as Continuity");
+  assert.match(stdout, /Hosted transfer/, "the hosted transfer flow is no longer labelled");
+});
+
 // os.homedir() follows $HOME on POSIX only, and this test must never see a real home.
 test("a dry run writes the preview into the fixture home and reports what it refused", { skip: process.platform === "win32" }, async () => {
   const temp = await mkdtemp(path.join(os.tmpdir(), "omegas-dev-"));

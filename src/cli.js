@@ -36,6 +36,17 @@ function parseArgs(argv) {
 
 export function help() {
   return `Usage: npx omegas-dev [options]\n\n` +
+    `Two things live under this command, and they do not touch each other:\n\n` +
+    `Continuity — local-only. Read, share and re-apply your Claude Code and Codex setup.\n` +
+    `No account, no network, no subprocess. Run \`omegas-dev <command> --help\` for detail.\n` +
+    `  omegas-dev scan      Read every declared configuration surface and print what was found\n` +
+    `  omegas-dev report    The same scan, rendered as a multi-section report (--html for a page)\n` +
+    `  omegas-dev compat    The derived compatibility matrix, its losses, and per-item exceptions\n` +
+    `  omegas-dev export    Write a redacted, content-addressed bundle you can share\n` +
+    `  omegas-dev diff      Preview exactly what importing a bundle would write. Writes nothing\n` +
+    `  omegas-dev import    Walk the same plan and apply only what you consent to, item by item\n` +
+    `  omegas-dev enable    Turn on one quarantined item, after showing you what it is\n\n` +
+    `Hosted transfer (this bare invocation) — the only path that contacts a server:\n` +
     `  --root <dir>   Root to scan (repeatable; defaults to the current directory)\n` +
     `  --api <url>    Omegas API base URL\n` +
     `  --unsafe-development-api  Allow an alternate HTTPS or loopback API for local testing\n` +

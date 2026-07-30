@@ -44,7 +44,8 @@
     "gate:cutover": "node --test test/cutover.test.js",
     "gate:release": "node --test test/release.test.js",
     "gate:redteam": "node --test test/redteam-quarantine.test.js test/redteam-export.test.js test/redteam-containment.test.js test/redteam-consent.test.js",
-    "gates": "npm run gate:purity && npm run gate:secrets && npm run gate:network && npm run gate:adversarial && npm run gate:noop && npm run gate:compat && npm run gate:cutover && npm run gate:redteam && npm run gate:release",
+    "gate:property": "node --test test/property.test.js",
+    "gates": "npm run gate:purity && npm run gate:secrets && npm run gate:network && npm run gate:adversarial && npm run gate:noop && npm run gate:compat && npm run gate:cutover && npm run gate:redteam && npm run gate:property && npm run gate:release",
     "pack:dry-run": "npm pack --dry-run",
     "prepublishOnly": "npm test && npm run check && npm run gates"
   },

@@ -42,7 +42,12 @@ export const APPLY_STATUS = {
  * @returns { code, status, applied[], skipped[], rolled_back[], staging, ledger_path }
  */
 export async function applyPlan({ plan, env, adapters, source = "local file", keepStaging = false }) {
-  const consented = plan.operations.filter((operation) => operation.action !== "skip" && operation.consent?.granted);
+  const granted = plan.operations.filter((operation) => operation.action !== "skip" && operation.consent?.granted);
+  // A quarantine is one atomic unit: the body and its disable switch apply together or not
+  // at all, whatever the consent flow decided. This is the engine's own backstop for the
+  // guarantee `emit.js` sets up — a hand-built or forced plan cannot slip a body past its
+  // switch here.
+  const consented = enforceQuarantineAtomicity(plan.operations, granted);
   const skipped = plan.operations.filter((operation) => !consented.includes(operation));
 
   if (consented.length === 0) {
@@ -197,6 +202,27 @@ export async function applyPlan({ plan, env, adapters, source = "local file", ke
     staging: keepStaging ? staging.dir : null,
     ledger_path: ledgerPath,
   };
+}
+
+/**
+ * Drop any quarantined item from the applied set unless BOTH halves are consented: the
+ * disable switch (`role: "quarantine"`) and at least one body operation of the same item. A
+ * body written without its switch is a live import; a switch written without its body is an
+ * orphan override. A no-op when the plan carries no companion switches.
+ */
+function enforceQuarantineAtomicity(allOperations, consented) {
+  const switchByItem = new Map();
+  for (const operation of allOperations) {
+    if (operation.role === "quarantine") switchByItem.set(operation.item_id, operation);
+  }
+  if (switchByItem.size === 0) return consented;
+  const itemApplies = new Map();
+  for (const [itemId, sw] of switchByItem) {
+    const switchGranted = consented.includes(sw);
+    const bodyGranted = consented.some((operation) => operation.item_id === itemId && operation.role !== "quarantine");
+    itemApplies.set(itemId, switchGranted && bodyGranted);
+  }
+  return consented.filter((operation) => !switchByItem.has(operation.item_id) || itemApplies.get(operation.item_id));
 }
 
 function groupByFile(operations) {

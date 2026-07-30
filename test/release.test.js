@@ -77,7 +77,7 @@ test("every named gate exists as a script and points at test files that exist", 
   const present = new Set(await readdir(path.join(repoRoot, "test")));
   const gates = Object.entries(manifest.scripts).filter(([name]) => name.startsWith("gate:"));
 
-  for (const required of ["gate:purity", "gate:secrets", "gate:network", "gate:adversarial", "gate:noop"]) {
+  for (const required of ["gate:purity", "gate:secrets", "gate:network", "gate:adversarial", "gate:noop", "gate:property"]) {
     assert.ok(manifest.scripts[required], `${required} is not a script`);
   }
   for (const [name, command] of gates) {

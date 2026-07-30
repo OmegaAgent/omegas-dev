@@ -138,30 +138,52 @@ async function askForCredentials({ requests, io, env }) {
 
 async function collectConsent({ operations, options, io, interactive }) {
   let granted = 0;
-  for (const operation of rankOperations(operations)) {
-    if (!operation.bulk_barred && options.yesInert) {
-      operation.consent.granted = true;
-      operation.consent.mode = "bulk";
-      operation.consent.reason = "--yes-inert: inert or declarative addition, accepted in bulk";
-      granted += 1;
+  // A quarantine is one decision. Its body and its disable switch share an `item_id` and all
+  // carry `disabled_on_write`, so they group under it; everything else is its own unit. The
+  // user answers once for the pair, and the pair is accepted or refused together — never a
+  // live body with the switch declined.
+  for (const unit of consentUnits(rankOperations(operations))) {
+    if (unit.every((operation) => !operation.bulk_barred) && options.yesInert) {
+      for (const operation of unit) {
+        operation.consent.granted = true;
+        operation.consent.mode = "bulk";
+        operation.consent.reason = "--yes-inert: inert or declarative addition, accepted in bulk";
+        granted += 1;
+      }
       continue;
     }
     if (!interactive) continue;
 
-    io.stdout(`\n${operation.action} ${operation.display_path}${operation.key_path ? ` § ${operation.key_path}` : ""}\n`);
-    io.stdout(`  ${operation.consent.reason}\n`);
-    if (operation.diff?.unified) io.stdout(`${operation.diff.unified}`);
-    else if (operation.diff?.key_diff) {
-      for (const change of operation.diff.key_diff) io.stdout(`  ${change.key_path} = ${JSON.stringify(change.to)}\n`);
+    for (const operation of unit) {
+      io.stdout(`\n${operation.action} ${operation.display_path}${operation.key_path ? ` § ${operation.key_path}` : ""}\n`);
+      io.stdout(`  ${operation.consent.reason}\n`);
+      if (operation.diff?.unified) io.stdout(`${operation.diff.unified}`);
+      else if (operation.diff?.key_diff) {
+        for (const change of operation.diff.key_diff) io.stdout(`  ${change.key_path} = ${JSON.stringify(change.to)}\n`);
+      }
     }
     const answer = (await io.prompt("  apply this? [y/N]: ")).trim().toLowerCase();
     if (answer === "y" || answer === "yes") {
-      operation.consent.granted = true;
-      operation.consent.mode = "individual";
-      granted += 1;
+      for (const operation of unit) {
+        operation.consent.granted = true;
+        operation.consent.mode = "individual";
+        granted += 1;
+      }
     }
   }
   return granted;
+}
+
+/** Group operations into consent units: a quarantined item is one unit, everything else its own. */
+function consentUnits(operations) {
+  const units = new Map();
+  for (const operation of operations) {
+    const key = operation.disabled_on_write ? `item:${operation.item_id}` : `op:${operation.op_id}`;
+    const bucket = units.get(key) ?? [];
+    bucket.push(operation);
+    units.set(key, bucket);
+  }
+  return [...units.values()];
 }
 
 function renderApply(result) {
