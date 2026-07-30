@@ -47,7 +47,7 @@ item came from instead of receiving an opaque archive.
 
 ## Explain a setup, read-only
 
-Two subcommands read your configuration and explain it. They write nothing, upload
+`scan` and `report` read your configuration and explain it. They write nothing, upload
 nothing, and open no network socket or subprocess.
 
 ```sh
@@ -74,10 +74,37 @@ the rule that excluded it. Deliberate absence is data — silence is a bug.
 | `--max-file-bytes <n>` | Per-file read cap; a breach is truncated and reported, never dropped |
 
 Exit codes: `0` success, `1` usage error, `2` no supported runtime found, `3` completed with
-warnings, `10` a detected runtime is older than this tool supports.
+warnings, `5` the export gate refused, `10` a detected runtime is older than this tool
+supports.
 
 `docs/ARCHITECTURE.md` describes how this is built and which guarantees are enforced by
 tests rather than by convention.
+
+## Share a setup, without sharing a secret
+
+```sh
+npx omegas-dev export --root ~/Code     # one file, redacted, content-addressed
+```
+
+`export` writes a single `.ocb.jsonl` bundle you can paste into a gist or commit to a repo.
+Credential values are replaced by `{{OMEGA_REDACTED:<class>:<ref>}}` placeholders; the key
+name, the position, the class and the site count stay in the clear, so a reader can
+reconstruct *"the Slack server needs a bot token in `SLACK_BOT_TOKEN`"* without learning one
+byte of any value. The same secret in five places gets the same `ref`, so re-binding is one
+answer, not five.
+
+There is no `--include-secrets` and there is no second, "complete" file. Before the bundle
+reaches your disk, the tool re-scans its own serialized bytes with the full detector and
+aborts on any high-confidence hit — writing nothing and exiting `5`. Recall is a measured
+number, not a claim: the test suite seeds 212 fake credentials across every surface it
+reads and asserts the percentage each release.
+
+Two companion files land beside it, both mode `0600` and neither meant to be shared: a
+local review report (which says more than the bundle) and a secret map holding pointers to
+where each value lives on this machine — never a value, not even hashed.
+
+`docs/BUNDLE_FORMAT.md` is the published format contract, written for anyone implementing a
+reader.
 
 ## Inspect locally
 

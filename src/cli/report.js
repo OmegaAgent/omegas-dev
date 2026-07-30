@@ -118,7 +118,38 @@ export function renderReport({ result, env }) {
     for (const finding of result.findings) out.push(`  ${finding.finding_id}: ${finding.message}`);
   }
 
-  section("6  REFUSALS AND LIMITS");
+  section("6  REDACTIONS");
+  // The report renders the REDACTED model, like every other consumer: the raw scan has no
+  // path to a rendering layer, because the screenshot of this output is the leak (T-R8).
+  out.push(
+    `redacted            ${result.redaction.distinct_secrets} distinct secret(s) across ` +
+      `${result.redaction.placeholder_sites} site(s)`,
+  );
+  out.push(`  shape-confirmed   ${result.redaction.shape_confirmed}  (a detector recognized the value)`);
+  out.push(`  positional only   ${result.redaction.positional_only}  (redacted for where it sat; nothing more claimed)`);
+  if (result.redaction.allowlisted_keys.length > 0) {
+    out.push(`  shown, not hidden ${result.redaction.allowlisted_keys.join(", ")}`);
+  }
+  if (result.redactions.length > 0) {
+    out.push("");
+    out.push(
+      table(
+        ["ref", "class", "tier", "confidence", "key names", "sites"],
+        result.redactions.map((record) => [
+          record.ref,
+          record.class,
+          record.tier,
+          record.confidence,
+          truncate(record.key_names.join(", ") || "-", 34),
+          String(record.sites.length),
+        ]),
+      ),
+    );
+    out.push("");
+    out.push("Values are gone; key names, positions and counts are not. Run `export` for a shareable bundle.");
+  }
+
+  section("7  REFUSALS AND LIMITS");
   out.push("Deliberate absence is data. Every rule that fired is listed; silence would be the bug.");
   out.push("");
   if (result.exclusions.length === 0) {

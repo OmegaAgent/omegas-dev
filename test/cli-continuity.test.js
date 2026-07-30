@@ -148,10 +148,13 @@ test("report renders every section a reader needs, and nothing was written", asy
       "3  LAYERS",
       "4  EFFECTIVE VALUES",
       "5  FINDINGS",
-      "6  REFUSALS AND LIMITS",
+      "6  REDACTIONS",
+      "7  REFUSALS AND LIMITS",
     ]) {
       assert.ok(text.includes(section), `the report is missing "${section}"`);
     }
+    assert.match(text, /shape-confirmed/);
+    assert.match(text, /positional only/);
     assert.match(text, /unresolved links {2,}1/);
     assert.match(text, /truncation/);
     assert.match(text, /severity beats layer rank/);

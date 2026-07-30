@@ -5,6 +5,11 @@
 // (semantics), amended by spike-corrections §7.2 (secret_positions split) and §7.3
 // (hooks[].command is argv, not an unconditional redaction position).
 //
+// M2 carried §7.3 to the two other command-valued keys: `apiKeyHelper` and
+// `awsCredentialExport` name a PROGRAM that prints a credential, not a credential. They
+// were listed in both secret_positions and argv_positions; unconditional redaction there
+// destroys the command, which is the portable content, so they are argv-only now.
+//
 // Constraints the data cannot express:
 //  - `tokens` is expanded in declaration order. `${root:<root_id>}` resolves to that
 //    root's platform-selected path; a flat token table cannot carry a per-platform
@@ -1072,7 +1077,7 @@ export default {
         effective_key: "key_path",
         layer_order: ["claude/managed", "claude/cli", "claude/local", "claude/project", "claude/user"],
       },
-      secret_positions: ["env.*", "apiKeyHelper", "awsCredentialExport"],
+      secret_positions: ["env.*"],
       deep_scan_positions: [],
       argv_positions: ["apiKeyHelper", "awsCredentialExport", "statusLine.command"],
       portability: { class: "MACHINE-LOCAL", rewrites: [] },
@@ -1133,7 +1138,7 @@ export default {
         effective_key: "key_path",
         layer_order: ["claude/managed", "claude/cli", "claude/local", "claude/project", "claude/user"],
       },
-      secret_positions: ["env.*", "apiKeyHelper", "awsCredentialExport"],
+      secret_positions: ["env.*"],
       deep_scan_positions: [],
       argv_positions: ["apiKeyHelper", "awsCredentialExport", "statusLine.command"],
       portability: { class: "REWRITE", rewrites: [{ rewrite_id: "abs_home", detector: "path.absolute_home", target: "${CLAUDE_HOME}" }] },
@@ -1195,7 +1200,7 @@ export default {
         layer_order: ["claude/managed", "claude/cli", "claude/local", "claude/project", "claude/user"],
         suppressed_when: "project_untrusted",
       },
-      secret_positions: ["env.*", "apiKeyHelper", "awsCredentialExport"],
+      secret_positions: ["env.*"],
       deep_scan_positions: [],
       argv_positions: ["apiKeyHelper", "awsCredentialExport", "statusLine.command"],
       portability: { class: "REWRITE", rewrites: [{ rewrite_id: "abs_project", detector: "path.absolute_home", target: "${CLAUDE_PROJECT_DIR}" }] },
@@ -1261,7 +1266,7 @@ export default {
         effective_key: "key_path",
         layer_order: ["claude/managed", "claude/cli", "claude/local", "claude/project", "claude/user"],
       },
-      secret_positions: ["env.*", "apiKeyHelper", "awsCredentialExport"],
+      secret_positions: ["env.*"],
       deep_scan_positions: [],
       argv_positions: ["apiKeyHelper", "awsCredentialExport", "statusLine.command"],
       portability: { class: "REWRITE", rewrites: [{ rewrite_id: "abs_project", detector: "path.absolute_home", target: "${CLAUDE_PROJECT_DIR}" }] },

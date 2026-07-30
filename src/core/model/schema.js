@@ -253,6 +253,101 @@ export const TruncationSchema = t.object({
   reason: t.string(),
 });
 
+// ── redaction and bundle (manifest §4, §5) ──────────────────────────────────────────
+// These two are PUBLISHED CONTRACT: a third-party reader is entitled to rely on them, so
+// they are validated mechanically rather than by inspection. Note what the redaction entry
+// has no room for — a length, a prefix, a suffix, a digest of a value (T-R6).
+
+export const RedactionSchema = t.object({
+  ref: t.string({ pattern: "^s[0-9]+$" }),
+  class: t.string({ pattern: "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$" }),
+  tier: t.enum(["HIGH", "MEDIUM", "LOW"]),
+  detector: t.array(t.string(), { nonEmpty: true }),
+  confidence: t.enum(["high", "structural"]),
+  key_names: t.array(t.string()),
+  sites: t.array(
+    t.object({
+      item_id: t.string({ nonEmpty: true }),
+      key_path: t.optional(t.nullable(t.string())),
+      span: t.optional(t.object({ line_start: t.number() })),
+    }),
+    { nonEmpty: true },
+  ),
+});
+
+export const RedactionHeaderSchema = t.object({
+  engine_version: t.string({ nonEmpty: true }),
+  pattern_set: t.string({ nonEmpty: true }),
+  placeholder_format: t.literal("{{OMEGA_REDACTED:<class>:<ref>}}"),
+  distinct_secrets: t.number(),
+  placeholder_sites: t.number(),
+  shape_confirmed: t.number(),
+  positional_only: t.number(),
+  classes: t.array(t.string()),
+  allowlisted_keys: t.array(t.string()),
+  post_export_scan: t.object({
+    status: t.enum(["pending", "passed", "failed"]),
+    high_tier_hits: t.number(),
+  }),
+});
+
+export const BundleManifestSchema = t.object({
+  schema_version: t.literal("omegas.continuity.v1"),
+  bundle: t.object({
+    id: t.string({ nonEmpty: true }),
+    created_at: t.string({ nonEmpty: true }),
+    generator: t.string({ nonEmpty: true }),
+    generator_version: t.string({ nonEmpty: true }),
+    digest: t.string({ pattern: "^sha256:[0-9a-f]{64}$" }),
+    digest_algo: t.literal("sha256"),
+    entry_count: t.number(),
+    byte_count: t.number(),
+    payload_policy: t.enum(["definition", "definition+scripts", "full"]),
+    complete: t.boolean(),
+  }),
+  redaction: RedactionHeaderSchema,
+  environment: t.object({
+    host: t.object({ os: t.string(), arch: t.string(), home_label: t.literal("~") }),
+    runtimes: t.array(t.any()),
+  }),
+  projects: t.array(t.any()),
+  layers: t.array(LayerSchema),
+  capabilities: t.array(
+    t.object({
+      runtime: t.string({ nonEmpty: true }),
+      adapter_version: t.string({ nonEmpty: true }),
+      status: t.string({ nonEmpty: true }),
+      kinds: t.record(t.string()),
+    }),
+  ),
+  items: t.array(t.any()),
+  effective: t.array(EffectiveSchema),
+  redactions: t.array(RedactionSchema),
+  findings: t.array(FindingSchema),
+  exclusions: t.array(ExclusionSchema),
+  truncations: t.array(TruncationSchema),
+  policy: t.object({
+    never_export: t.array(
+      t.object({
+        rule_id: t.string({ nonEmpty: true }),
+        match: t.string({ nonEmpty: true }),
+        class: t.string(),
+        severity: t.string(),
+        reason: t.string({ nonEmpty: true }),
+      }),
+    ),
+    caps: t.record(t.number()),
+  }),
+  entries: t.array(
+    t.object({
+      name: t.string({ pattern: "^(blobs|items|derived)/" }),
+      sha256: t.string({ pattern: "^sha256:[0-9a-f]{64}$" }),
+      bytes: t.number(),
+      media_type: t.string(),
+    }),
+  ),
+});
+
 export const ScanResultSchema = t.object({
   items: t.array(ItemSchema),
   layers: t.array(LayerSchema),

@@ -6,8 +6,10 @@ import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { ADAPTERS } from "../core/adapters/registry.js";
+import { PAYLOAD_POLICIES } from "../core/bundle/write.js";
 import { buildEnvironment } from "../core/engine/environment.js";
 import { runScan } from "../core/engine/pipeline.js";
+import { runExport } from "./export.js";
 import { renderReport } from "./report.js";
 import { renderScan, scanEnvelope } from "./scan.js";
 
@@ -18,10 +20,14 @@ export const EXIT = {
   USAGE: 1,
   NO_RUNTIME: 2,
   WARNINGS: 3,
+  // The post-export gate. Distinct from every other failure because it means the tool
+  // caught ITSELF about to write a secret, which a user must never confuse with a config
+  // problem on their machine (THR §3.5).
+  REDACTION_GATE: 5,
   VERSION_INCOMPATIBLE: 10,
 };
 
-const COMMANDS = new Set(["scan", "report"]);
+const COMMANDS = new Set(["scan", "report", "export"]);
 
 export function isSubcommand(argv) {
   return argv.length > 0 && COMMANDS.has(argv[0]);
@@ -31,24 +37,56 @@ export function commandHelp() {
   return (
     `Usage: omegas-dev <command> [options]\n\n` +
     `  scan     Read every declared configuration surface and print what was found\n` +
-    `  report   The same scan, rendered as a multi-section report\n\n` +
+    `  report   The same scan, rendered as a multi-section report\n` +
+    `  export   Write a redacted, content-addressed bundle you can share\n\n` +
     `Options\n` +
     `  --home <dir>   Home directory to read (default: your home directory)\n` +
     `  --root <dir>   Project root to scan for project-scope config (repeatable)\n` +
     `  --json         Emit the machine-readable result envelope on stdout\n` +
     `  --max-file-bytes <n>  Per-file read cap; a breach is truncated and reported, never dropped\n` +
+    `  --out <path>          export only: where to write the bundle\n` +
+    `  --payload-policy <p>  export only: ${PAYLOAD_POLICIES.join(" | ")} (default: definition)\n` +
     `  --help, -h     Show this help\n\n` +
-    `Both commands are read-only: nothing is written, nothing is uploaded, and no\n` +
-    `network or subprocess is used. Run \`omegas-dev\` with no command for the hosted\n` +
+    `scan and report are read-only. export writes exactly one shareable artifact and it\n` +
+    `is the redacted one: values are replaced by {{OMEGA_REDACTED:class:ref}} placeholders,\n` +
+    `there is no --include-secrets flag, and the serialized bytes are re-scanned before\n` +
+    `they reach the disk (a hit aborts with exit 5 and writes nothing). No command here\n` +
+    `uses the network or a subprocess. Run \`omegas-dev\` with no command for the hosted\n` +
     `transfer flow, which is the only path that contacts a server.\n`
   );
 }
 
 export function parseArgs(argv) {
-  const options = { command: argv[0], roots: [], home: null, json: false, help: false, maxFileBytes: null };
+  const options = {
+    command: argv[0],
+    roots: [],
+    home: null,
+    json: false,
+    help: false,
+    maxFileBytes: null,
+    out: null,
+    payloadPolicy: "definition",
+  };
   for (let i = 1; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === "--max-file-bytes") {
+    if (arg === "--out") {
+      const value = argv[++i];
+      if (!value) throw new UsageError("--out requires a path");
+      if (options.command !== "export") throw new UsageError("--out applies to `export` only");
+      options.out = value;
+    } else if (arg === "--payload-policy") {
+      const value = argv[++i];
+      if (!PAYLOAD_POLICIES.includes(value)) {
+        throw new UsageError(`--payload-policy must be one of ${PAYLOAD_POLICIES.join(" | ")}`);
+      }
+      if (options.command !== "export") throw new UsageError("--payload-policy applies to `export` only");
+      options.payloadPolicy = value;
+    } else if (arg === "--include-secrets") {
+      // Named explicitly so the refusal is a sentence rather than "unknown argument".
+      throw new UsageError(
+        "there is no --include-secrets: open-core Continuity never moves a credential value",
+      );
+    } else if (arg === "--max-file-bytes") {
       const value = Number(argv[++i]);
       if (!Number.isInteger(value) || value <= 0) throw new UsageError("--max-file-bytes requires a positive integer");
       options.maxFileBytes = value;
@@ -97,8 +135,24 @@ export async function dispatch(argv, io = defaultIo()) {
     caps: options.maxFileBytes ? { file_bytes: options.maxFileBytes } : undefined,
   });
 
-  const result = await runScan({ adapters: ADAPTERS, env });
+  const exporting = options.command === "export";
+  const result = await runScan({
+    adapters: ADAPTERS,
+    env,
+    payloadPolicy: exporting ? options.payloadPolicy : null,
+  });
   const code = exitCodeFor(result);
+  if (exporting) {
+    return runExport({
+      options,
+      result,
+      env,
+      adapters: ADAPTERS,
+      code,
+      io,
+      refuse: code === EXIT.NO_RUNTIME || code === EXIT.VERSION_INCOMPATIBLE,
+    });
+  }
 
   if (options.json) {
     io.stdout(`${JSON.stringify(scanEnvelope({ command: options.command, code, result, env }), null, 2)}\n`);
@@ -108,6 +162,7 @@ export async function dispatch(argv, io = defaultIo()) {
   io.stdout(options.command === "report" ? renderReport({ result, env }) : renderScan({ result, env }));
   return code;
 }
+
 
 export function exitCodeFor(result) {
   if (!result.runtimes.some((runtime) => runtime.present)) return EXIT.NO_RUNTIME;

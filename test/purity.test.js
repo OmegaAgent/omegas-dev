@@ -94,8 +94,8 @@ test("engine/ is runtime-agnostic: no vendor name and no switch on a runtime id"
   }
 });
 
-test("fsx/, formats/, model/ and policy/ are runtime-agnostic too", async () => {
-  for (const directory of ["fsx", "formats", "model", "policy"]) {
+test("fsx/, formats/, model/, policy/, redact/ and bundle/ are runtime-agnostic too", async () => {
+  for (const directory of ["fsx", "formats", "model", "policy", "redact", "bundle"]) {
     for (const file of await jsFiles(path.join(CORE, directory))) {
       const source = await readFile(file, "utf8");
       const label = path.relative(repoRoot, file);
@@ -167,6 +167,20 @@ test("spike-corrections §2/§3: `$` is a deep-scan position, never an unconditi
           !(surface.secret_positions ?? []).includes("command"),
           `${surface.surface_id} would redact the hook command, which is the portable content`,
         );
+      }
+    }
+  }
+});
+
+test("a position is either a secret position or an argv position, never both", () => {
+  // The two treatments contradict each other: one erases the value, the other keeps the
+  // command and redacts the credential-bearing token inside it. A key listed twice gets
+  // erased, which is how a hook command or an `apiKeyHelper` silently stops working.
+  for (const adapter of ADAPTERS) {
+    for (const surface of adapter.surfaces) {
+      const argv = new Set(surface.argv_positions ?? []);
+      for (const position of surface.secret_positions ?? []) {
+        assert.ok(!argv.has(position), `${surface.surface_id}: "${position}" is both a secret and an argv position`);
       }
     }
   }

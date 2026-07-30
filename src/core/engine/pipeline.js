@@ -1,9 +1,16 @@
-// The orchestration, in order. Read-only in M1: scan → normalize → derive → effective
-// → lint. Redaction lands between normalize and effective in M2, because an effective
-// row keyed by a permission-rule string would otherwise carry an unredacted value into
-// the bundle even though the item itself was redacted (spike-corrections §4).
+// The orchestration, in order: scan → normalize → derive → REDACT → effective → lint.
+// Redaction sits before the effective table because an effective row keyed by a
+// permission-rule string would otherwise carry an unredacted value into the bundle even
+// though the item itself was redacted (spike-corrections §4), and before content ids
+// because a content id must address the bytes the bundle actually carries.
+//
+// It is not optional and there is no flag: every consumer — the terse scan, the report,
+// the exporter — reads the redacted model, so the raw scan has no path to a rendering
+// layer (THR §3.5, T-R8).
 
+import { redact } from "../redact/index.js";
 import { lstatOrNull } from "../fsx/safe-read.js";
+import { readAssets } from "./assets.js";
 import { computeEffective } from "./effective.js";
 import { lint } from "./lint.js";
 import {
@@ -17,7 +24,7 @@ import { scan, scanDerived } from "./scan.js";
 
 const MAX_PROBES = 2000;
 
-export async function runScan({ adapters, env }) {
+export async function runScan({ adapters, env, salt = undefined, payloadPolicy = null }) {
   const scanResult = await scan({ adapters, env });
   const first = normalize({ adapters, env, scanResult });
 
@@ -35,6 +42,11 @@ export async function runScan({ adapters, env }) {
   const probes = await probePaths(items);
   deriveEdges({ items, env, probes });
   derivePortability(items);
+
+  // Asset bytes are read BEFORE redaction so they pass through the same pass as
+  // everything else; with no policy supplied nothing is read at all.
+  const assetTexts = await readAssets({ items, env, adapters, policy: payloadPolicy });
+  const redaction = redact({ items, adapters, salt, assetTexts });
   finalizeContentIds(items);
 
   const layers = second.layers;
@@ -46,6 +58,14 @@ export async function runScan({ adapters, env }) {
     layers,
     effective,
     findings,
+    redactions: redaction.redactions,
+    redaction: redaction.header,
+    // Local-only, never serialized: the values this run redacted (the post-export gate
+    // needs them), their shapes, and the pointer map. `scanEnvelope` does not read them.
+    secret_values: redaction.secret_values,
+    secret_shapes: redaction.shapes,
+    secret_map: redaction.secret_map,
+    asset_texts: assetTexts,
     exclusions: mergeExclusions([
       scanResult.exclusions.list(),
       derived.exclusions.list(),

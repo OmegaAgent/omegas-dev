@@ -22,6 +22,11 @@ export function scanEnvelope({ command, code, result, env }) {
     counts: counts(result),
     items: result.items.map(publicItem),
     effective: result.effective,
+    // The envelope carries the redaction header and side table because every consumer of
+    // it — including the hosted layer — must render the redacted model, and re-binding a
+    // placeholder needs the class and the site list (THR §3.3, T-R8).
+    redaction: result.redaction,
+    redactions: result.redactions,
     findings: result.findings,
     exclusions: result.exclusions,
     truncations: result.truncations,

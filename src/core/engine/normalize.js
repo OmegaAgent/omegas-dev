@@ -478,11 +478,21 @@ export function derivePortability(items) {
   }
 }
 
+/**
+ * Runs AFTER redaction, and re-derives the raw digest as well as the content id. Both
+ * must address the bytes the bundle actually carries: a digest taken at read time is a
+ * digest of the version with the credential still in it, and shipping that alongside the
+ * redacted bytes is both inconsistent and a small leak of content identity.
+ */
 export function finalizeContentIds(items) {
   for (const item of items) {
     if (item.kind === "unresolved_link") continue;
     const canonical = item._raw_text ?? JSON.stringify(item.payload?.parsed?.value ?? null);
     item.content_id = contentId(canonical);
+    if (typeof item._raw_text === "string" && item.payload?.raw) {
+      item.payload.raw.sha256 = contentId(item._raw_text);
+      item.payload.raw.bytes = Buffer.byteLength(item._raw_text);
+    }
   }
 }
 

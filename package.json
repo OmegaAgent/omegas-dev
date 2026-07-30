@@ -31,7 +31,7 @@
   },
   "scripts": {
     "test": "node --test",
-    "check": "node --check bin/omegas-dev.js && node --check src/*.js && node --check src/cli/*.js && node --check src/core/adapters/*.js && node --check src/core/engine/*.js && node --check src/core/formats/*.js && node --check src/core/fsx/*.js && node --check src/core/model/*.js && node --check src/core/policy/*.js",
+    "check": "node --check bin/omegas-dev.js && node --check src/*.js && node --check src/cli/*.js && node --check src/core/adapters/*.js && node --check src/core/engine/*.js && node --check src/core/formats/*.js && node --check src/core/fsx/*.js && node --check src/core/model/*.js && node --check src/core/policy/*.js && node --check src/core/redact/*.js && node --check src/core/bundle/*.js",
     "pack:dry-run": "npm pack --dry-run",
     "prepublishOnly": "npm test && npm run check"
   },

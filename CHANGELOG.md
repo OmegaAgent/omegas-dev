@@ -30,6 +30,28 @@ transfer flow is unchanged and is still reached by a bare invocation and its own
 - Six lints ship, each grounded in a condition found on a real machine — including a hook
   silently muted by a sentinel file, and a permission rule pointing at a directory that no
   longer exists.
+- `omegas-dev export` writes a shareable bundle that carries **no credential value**.
+  Values become `{{OMEGA_REDACTED:<class>:<ref>}}` placeholders; the key name, position,
+  class and site count stay in the clear. The same value anywhere on the machine resolves
+  to the same `ref`, which is what stops a key pasted into two places from being caught in
+  one and missed in the other. There is no `--include-secrets` flag and no second file.
+- Redaction runs as five layers whose results are unioned — position, key name, ~30
+  clean-room provider patterns, entropy at declared sinks, and a deep walk of every parsed
+  leaf with one bounded base64/percent decode. It reports how sure it is: a value
+  recognized by shape is `high`, a value redacted for where it sat is `structural`, and the
+  two are separated everywhere they are shown.
+- A false positive costs a span, never a file. The 0.1.5 behaviour of dropping a whole file
+  on any match is gone; a skill that documents credential shapes now survives byte for byte.
+- Recall is measured rather than claimed. A seeded corpus of 212 fake credentials spread
+  across every surface the scanner reads runs on every build and asserts per-tier recall,
+  alongside a precision corpus of the placeholders and example keys that must survive.
+- Before a bundle reaches the disk the tool re-scans its own serialized bytes with the full
+  detector and aborts on any HIGH-tier hit, writing nothing and exiting `5`.
+- The bundle digest is content-addressed and excludes `bundle.id` and `created_at`, so two
+  exports of an unchanged setup agree. Entry names are canonicalized on write and re-checked
+  on read, where a violation is a refusal rather than a repair.
+- `docs/BUNDLE_FORMAT.md` publishes the format: digest algorithm and scope, canonicalization
+  rules, placeholder grammar, redaction header, caps and `payload_policy`.
 
 ## 0.1.5
 
