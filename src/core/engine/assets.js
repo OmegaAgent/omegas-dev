@@ -15,14 +15,19 @@
 
 import path from "node:path";
 import { contentId } from "../model/identity.js";
+import { displayPath, tokenizeWithin } from "../fsx/paths.js";
 import { safeReadText } from "../fsx/safe-read.js";
+import { ExclusionLedger, fileRules, matchFileRule, rulesFor } from "../policy/never-export.js";
 import { allRootPaths } from "./environment.js";
 
-const CARRIED_ROLES = {
-  definition: new Set(),
-  "definition+scripts": new Set(["script", "lib", "bin", "reference"]),
-  full: null,
-};
+// `null` means "every role", and it has to be distinguished from "no policy supplied" by
+// key presence rather than by nullishness: `CARRIED_ROLES[policy] ?? new Set()` reads
+// `full` as the empty set, which made the most permissive policy carry the least.
+const CARRIED_ROLES = new Map([
+  ["definition", new Set()],
+  ["definition+scripts", new Set(["script", "lib", "bin", "reference"])],
+  ["full", null],
+]);
 
 /**
  * Fills in `sha256` and `bytes` on every asset record and returns the text of the assets
@@ -32,17 +37,37 @@ const CARRIED_ROLES = {
  */
 export async function readAssets({ items, env, adapters, policy }) {
   const texts = new Map();
-  if (!policy) return texts;
-  const roles = CARRIED_ROLES[policy] ?? new Set();
+  const exclusions = new ExclusionLedger();
+  if (!policy) return { texts, exclusions };
+  const roles = CARRIED_ROLES.has(policy) ? CARRIED_ROLES.get(policy) : new Set();
   const roots = allRootPaths(env, adapters);
+  // The never-export table is a rule about PATHS, and an asset has a path like anything
+  // else. Reading assets through `safeReadText` alone skipped the table entirely, so a
+  // `deploy.pem` or an `id_rsa` sitting in a skill directory was carried by name-blind
+  // policy while the same file one directory up was a hard refusal.
+  const rulesByRuntime = new Map(
+    (adapters ?? []).map((adapter) => [adapter.id, fileRules(rulesFor(adapter, env.tokens))]),
+  );
 
   for (const item of items) {
     if (!Array.isArray(item.assets) || item.assets.length === 0) continue;
     if (typeof item._abs_path !== "string") continue;
     if (item.export_refused) continue;
+    const rules = rulesByRuntime.get(item.runtime) ?? [];
     const directory = path.dirname(item._abs_path);
     for (const asset of item.assets) {
       const full = path.join(directory, asset.display_path);
+      const denied = matchFileRule(rules, full);
+      if (denied) {
+        asset.included = false;
+        asset.reason = `never-exported: ${denied.rule.rule_id}`;
+        exclusions.record(denied.rule, {
+          label: tokenizeWithin(displayPath(full, env.homeDir), env),
+          bytes: asset.bytes ?? 0,
+          unit: "files",
+        });
+        continue;
+      }
       const read = await safeReadText(full, roots, env.caps.file_bytes);
       if (!read.ok) {
         asset.sha256 = null;
@@ -64,5 +89,5 @@ export async function readAssets({ items, env, adapters, policy }) {
       texts.set(item.item_id, perItem);
     }
   }
-  return texts;
+  return { texts, exclusions };
 }

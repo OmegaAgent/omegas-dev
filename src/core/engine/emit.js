@@ -34,6 +34,7 @@ import {
   isUnresolved,
   joinKeyPath,
   matchKeyPattern,
+  matchesPrefix,
   rebuildKeyPath,
   splitKeyPath,
   toPosix,
@@ -61,6 +62,9 @@ export const BLOCK_REASONS = {
   malformed: "the item names a target this reader will not build",
   unsupported_write: "no writer is registered for this surface's format and write mode",
   reserved: "this kind is reserved for v1.1: declared so the bundle shape is stable, not written by this version",
+  claim_mismatch:
+    "this key belongs to another surface, and importing it under this one would apply that surface's rules instead of its owner's",
+  no_quarantine: "this surface declares no disabled form, so an executable item cannot be written here inert",
 };
 
 /**
@@ -190,11 +194,20 @@ async function planItem({ item, manifest, entries, adapters, env, present, roots
   if ((emit.banned_in_scopes ?? []).includes(item.scope)) {
     return { blocked: block(item, "banned_in_scope", emit.post_import_note ?? BLOCK_REASONS.banned_scope) };
   }
+  const owners = claimingSurfaces(item, adapter, surface);
+  if (owners) {
+    return { blocked: block(item, "surface_claim_mismatch", `${BLOCK_REASONS.claim_mismatch} (${owners.join(", ")})`) };
+  }
 
   const target = await resolveTarget({ item, surface, env, roots });
   if (target.blocked) return { blocked: block(item, target.rule_id, target.reason) };
 
   const trustTier = effectiveTier(item, surface);
+  // An executable item on a surface with no disabled form has nowhere inert to land, and
+  // writing it live because the descriptor is silent is the quarantine failing open.
+  if (trustTier === "EXECUTABLE" && !emit.disabled_form) {
+    return { blocked: block(item, "no_disabled_form", BLOCK_REASONS.no_quarantine) };
+  }
   const authority = isAuthority(item, surface);
   const context = {
     item,
@@ -790,9 +803,60 @@ function quarantineForMissingCredentials(context, unresolved) {
   context.quarantine = true;
 }
 
+/**
+ * Which surface owns a key is a declared fact, and the SCAN side already applies it: a
+ * catch-all surface skips every key another surface claims, so a hook is never scanned as
+ * a plain setting. `surface_id` is a BUNDLE field, though, and the bundle is the author's,
+ * so the import side has to re-derive the same answer instead of trusting the label.
+ *
+ * Without this, a relabelling swaps a strict surface's rules for a permissive one's: the
+ * same bytes at the same key path, declared to be a `setting` rather than a `hook`, get a
+ * DECLARATIVE tier, no disabled form and a bulk-consentable operation — and land live.
+ *
+ * A bare `*` or `**` claim is a catch-all rather than a claim on a named key, so it is not
+ * evidence of ownership and would otherwise make every sibling key unimportable.
+ */
+function claimingSurfaces(item, adapter, surface) {
+  const keyPath = item.origin?.key_path;
+  if (!keyPath) return null;
+  const owners = [];
+  for (const candidate of adapter.surfaces ?? []) {
+    const patterns = [
+      ...(candidate.claims ?? []),
+      ...(candidate.locations ?? []).map((location) => location.key_path),
+    ].filter((pattern) => pattern && pattern !== "*" && pattern !== "**" && pattern !== "$");
+    if (patterns.some((pattern) => matchesPrefix(pattern, keyPath))) owners.push(candidate.surface_id);
+  }
+  if (owners.length === 0 || owners.includes(surface.surface_id)) return null;
+  return owners;
+}
+
+/**
+ * `argv_positions` is the surface's own statement that a position holds a COMMAND LINE —
+ * the runtime spawns what it finds there. Until now that declaration only reached the
+ * redactor, so a settings key the adapter itself describes as an argv position could be
+ * imported as an inert-looking `setting`.
+ */
+function carriesArgvPosition(item, surface) {
+  const keyPath = item.origin?.key_path;
+  if (!keyPath) return false;
+  return (surface.argv_positions ?? []).some(
+    (pattern) =>
+      pattern &&
+      pattern !== "$" &&
+      // The position may name the item itself or an ancestor of it (`apiKeyHelper`), or
+      // sit inside the value the item carries (`statusLine.command` under `statusLine`).
+      (matchesPrefix(pattern, keyPath) || matchesPrefix(keyPath, pattern)),
+  );
+}
+
 function effectiveTier(item, surface) {
   const fromAssets = (item.assets ?? []).some((asset) => asset.exec_bit) ? "EXECUTABLE" : "INERT";
-  return maxTier(maxTier(item.trust_tier ?? surface.trust_tier, surface.trust_tier), fromAssets);
+  const fromArgv = carriesArgvPosition(item, surface) ? "EXECUTABLE" : "INERT";
+  return maxTier(
+    maxTier(maxTier(item.trust_tier ?? surface.trust_tier, surface.trust_tier), fromAssets),
+    fromArgv,
+  );
 }
 
 function isAuthority(item, surface) {

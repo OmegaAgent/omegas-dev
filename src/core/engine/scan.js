@@ -23,7 +23,7 @@ import {
 import { eolOf, lstatOrNull, safeEntries, safeReadText } from "../fsx/safe-read.js";
 import { collectLocation, expandGlobPath } from "../fsx/walk.js";
 import { IGNORED_DIRS } from "../policy/caps.js";
-import { ExclusionLedger, fileRules, matchFileRule, rulesFor } from "../policy/never-export.js";
+import { ExclusionLedger, MULTIPLE_LINK_RULE, fileRules, matchFileRule, rulesFor } from "../policy/never-export.js";
 import { allRootPaths, contextsFor, rootPathsFor } from "./environment.js";
 
 export async function scan({ adapters, env }) {
@@ -262,6 +262,16 @@ async function readGuarded({ absPath, roots, rules, env, exclusions, truncations
     }
   }
   if (!info?.isFile()) return null;
+  // A second name for the same inode is a second name the never-export table never saw.
+  const multiplyLinked = !denied && Number(info.nlink ?? 1) > 1;
+  if (multiplyLinked) {
+    exclusions.record(MULTIPLE_LINK_RULE, {
+      label: safeLabel(absPath, env),
+      bytes: info.size ?? 0,
+      unit: "files",
+      note: "scanned for structure, refused for export",
+    });
+  }
   const result = await safeReadText(absPath, roots, maxBytes);
   if (!result.ok) return null;
   if (result.truncated) {
@@ -277,8 +287,12 @@ async function readGuarded({ absPath, roots, rules, env, exclusions, truncations
   }
   return {
     result,
-    export_refused: Boolean(denied?.scan_and_refuse),
-    export_refused_by: denied?.scan_and_refuse ? denied.rule.rule_id : null,
+    export_refused: Boolean(denied?.scan_and_refuse) || multiplyLinked,
+    export_refused_by: denied?.scan_and_refuse
+      ? denied.rule.rule_id
+      : multiplyLinked
+        ? MULTIPLE_LINK_RULE.rule_id
+        : null,
   };
 }
 

@@ -45,7 +45,8 @@ export async function runScan({ adapters, env, salt = undefined, payloadPolicy =
 
   // Asset bytes are read BEFORE redaction so they pass through the same pass as
   // everything else; with no policy supplied nothing is read at all.
-  const assetTexts = await readAssets({ items, env, adapters, policy: payloadPolicy });
+  const assets = await readAssets({ items, env, adapters, policy: payloadPolicy });
+  const assetTexts = assets.texts;
   const redaction = redact({ items, adapters, salt, assetTexts });
   finalizeContentIds(items);
 
@@ -69,6 +70,7 @@ export async function runScan({ adapters, env, salt = undefined, payloadPolicy =
     exclusions: mergeExclusions([
       scanResult.exclusions.list(),
       derived.exclusions.list(),
+      assets.exclusions.list(),
       first.exclusions,
       second.exclusions,
     ]),

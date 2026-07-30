@@ -78,6 +78,18 @@ export function buildBundle({
     copy.payload = copy.payload ? JSON.parse(JSON.stringify(copy.payload)) : null;
     copy.assets = (copy.assets ?? []).map((asset) => ({ ...asset }));
 
+    // "Its structure is still reported; its bytes never leave" has to be true of the
+    // PARSED tree as well as the raw text. Nulling `_raw_text` at normalize is not enough
+    // on its own: for a text surface the body IS the bytes and it lands inside
+    // `payload.parsed`, so a refused file travelled with its content in a second field.
+    // Reducing the tree to its shape happens here, at the one boundary where the claim
+    // has to hold, so the local report keeps the fidelity a reader needs.
+    if (item.export_refused && copy.payload) {
+      copy.payload.parsed = structureOnly(copy.payload.parsed);
+      copy.payload.recognized = structureOnly(copy.payload.recognized);
+      copy.payload.unrecognized = structureOnly(copy.payload.unrecognized);
+    }
+
     if (typeof item._raw_text === "string" && copy.payload) {
       const blob = addBlob(item._raw_text, mediaTypeFor(item.payload.format));
       if (blob.refused) {
@@ -186,6 +198,18 @@ export function serialize(manifest, entries) {
     lines.push(JSON.stringify({ name: entry.name, sha256: entry.sha256, encoding: entry.encoding, content: entry.content }));
   }
   return `${lines.join("\n")}\n`;
+}
+
+/** Key names, array lengths and value types survive; no string content does. */
+export const REFUSED_LEAF = "{{OMEGA_REFUSED}}";
+
+function structureOnly(value) {
+  if (typeof value === "string") return REFUSED_LEAF;
+  if (Array.isArray(value)) return value.map(structureOnly);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, structureOnly(child)]));
+  }
+  return value;
 }
 
 function mediaTypeFor(format) {

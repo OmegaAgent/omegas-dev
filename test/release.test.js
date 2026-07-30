@@ -41,6 +41,11 @@ test("the release checklist stays out of the tarball: it names un-rotated creden
   assert.equal(files.includes("docs/RELEASE_CHECKLIST.md"), false);
 });
 
+test("the independent verification report is a repo-only artifact, not shipped", async () => {
+  const files = await packedFiles();
+  assert.equal(files.includes("docs/VERIFICATION.md"), false);
+});
+
 test("the release checklist puts the credential rotation first, and prints no value", async () => {
   const text = await readFile(path.join(repoRoot, "docs", "RELEASE_CHECKLIST.md"), "utf8");
   const firstItem = text.slice(text.indexOf("## 0."), text.indexOf("## 1."));
@@ -115,6 +120,7 @@ test("the docs that ship cross-link to each other and none of the links dangle",
     "CUTOVER.md",
     "IMPORT_MODEL.md",
     "RELEASE_CHECKLIST.md",
+    "VERIFICATION.md",
   ]);
 
   for (const name of names) {

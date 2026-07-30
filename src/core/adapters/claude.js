@@ -1121,6 +1121,18 @@ export default {
           "skipAutoPermissionPrompt",
           "skipWorkflowUsageWarning",
           "permissions.defaultMode",
+          // Not prompt suppression, but the same category of harm, and the reason the
+          // list is key-dependent in the first place: each of these decides WHAT the
+          // agent runs or WHERE it talks. `defaultShell` is the program every command
+          // goes through. `enabledPlugins` and `extraKnownMarketplaces` are a
+          // code-distribution source, which the marketplace surface already treats as
+          // individual-consent-only (THR T-I9) — the setting that names one cannot be
+          // laxer than the surface that carries it. `env` is the agent's own process
+          // environment, where a base-URL override redirects an entire session.
+          "defaultShell",
+          "enabledPlugins.**",
+          "extraKnownMarketplaces.**",
+          "env.**",
         ],
       },
       notes: "CLA §6.1 — managed settings parse TOLERANTLY (bad entries stripped with warnings) while user/project/local settings are STRICT: one malformed key rejects the whole file and silently disables that layer. Validate before writing.",
@@ -1182,6 +1194,18 @@ export default {
           "skipAutoPermissionPrompt",
           "skipWorkflowUsageWarning",
           "permissions.defaultMode",
+          // Not prompt suppression, but the same category of harm, and the reason the
+          // list is key-dependent in the first place: each of these decides WHAT the
+          // agent runs or WHERE it talks. `defaultShell` is the program every command
+          // goes through. `enabledPlugins` and `extraKnownMarketplaces` are a
+          // code-distribution source, which the marketplace surface already treats as
+          // individual-consent-only (THR T-I9) — the setting that names one cannot be
+          // laxer than the surface that carries it. `env` is the agent's own process
+          // environment, where a base-URL override redirects an entire session.
+          "defaultShell",
+          "enabledPlugins.**",
+          "extraKnownMarketplaces.**",
+          "env.**",
         ],
       },
       notes: "Authority here is KEY-DEPENDENT (adapter-architecture §2.2), not surface-wide, which is exactly what key_policy.REVIEW_REQUIRED carries: those keys SUPPRESS SAFETY PROMPTS (CLA §6.2) — importing them silently is a category of harm distinct from importing a wrong value, so those keys never ride a bulk accept. `claudeMdExcludes` merges as union_with_resolution with an empty severity order, with one absolute: the managed CLAUDE.md can never be excluded (CLA §9).",
@@ -1249,6 +1273,18 @@ export default {
           "skipAutoPermissionPrompt",
           "skipWorkflowUsageWarning",
           "permissions.defaultMode",
+          // Not prompt suppression, but the same category of harm, and the reason the
+          // list is key-dependent in the first place: each of these decides WHAT the
+          // agent runs or WHERE it talks. `defaultShell` is the program every command
+          // goes through. `enabledPlugins` and `extraKnownMarketplaces` are a
+          // code-distribution source, which the marketplace surface already treats as
+          // individual-consent-only (THR T-I9) — the setting that names one cannot be
+          // laxer than the surface that carries it. `env` is the agent's own process
+          // environment, where a base-URL override redirects an entire session.
+          "defaultShell",
+          "enabledPlugins.**",
+          "extraKnownMarketplaces.**",
+          "env.**",
         ],
       },
       notes: "banned_in_scopes lists `project` because manifest §5.4 limits v1 imports to user scope: a project-scope write that the runtime then ignores until the trust dialog is accepted is a silently broken import, which is worse than not offering it.",
@@ -1314,6 +1350,18 @@ export default {
           "skipAutoPermissionPrompt",
           "skipWorkflowUsageWarning",
           "permissions.defaultMode",
+          // Not prompt suppression, but the same category of harm, and the reason the
+          // list is key-dependent in the first place: each of these decides WHAT the
+          // agent runs or WHERE it talks. `defaultShell` is the program every command
+          // goes through. `enabledPlugins` and `extraKnownMarketplaces` are a
+          // code-distribution source, which the marketplace surface already treats as
+          // individual-consent-only (THR T-I9) — the setting that names one cannot be
+          // laxer than the surface that carries it. `env` is the agent's own process
+          // environment, where a base-URL override redirects an entire session.
+          "defaultShell",
+          "enabledPlugins.**",
+          "extraKnownMarketplaces.**",
+          "env.**",
         ],
       },
       notes: "CLA §7.4 — since v2.1.211 this file loads from the GIT REPOSITORY ROOT even when the session starts in a subdirectory, and 'Yes, don't ask again' resolves through worktrees to the main checkout, so all 12 omega worktrees write to one file. This is the layer that carried live provider keys inside a permission rule on the surveyed machine (CLA §10 #1).",

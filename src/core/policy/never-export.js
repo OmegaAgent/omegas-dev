@@ -29,6 +29,24 @@ export function rulesFor(adapter, vars) {
   });
 }
 
+/**
+ * Not a path rule, and deliberately not in the declared table: every rule above matches a
+ * NAME, and a hard link gives one inode a second name. A regular file with more than one
+ * link inside a scanned root may therefore BE a never-export sink under a name the table
+ * cannot recognize, and nothing the reader can see from here distinguishes the two.
+ *
+ * Treated as a `secret_sink` rather than a hard refusal, which is the same answer the
+ * table gives for a file whose shape is worth reporting and whose bytes are not: the
+ * structure is described, the bytes are dropped, and the refusal is a visible record.
+ */
+export const MULTIPLE_LINK_RULE = {
+  rule_id: "global.multiple_hard_links",
+  class: "secret_sink",
+  severity: "hard",
+  reason:
+    "this file has more than one name on disk, so a never-export rule may match its other name; its structure is reported and its bytes are not carried",
+};
+
 export function fileRules(rules) {
   return rules.filter((entry) => entry.key_prefix === null && !isUnresolved(entry.path));
 }

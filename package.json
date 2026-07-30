@@ -43,7 +43,8 @@
     "gate:compat": "node --test test/compat.test.js test/compat-cli.test.js",
     "gate:cutover": "node --test test/cutover.test.js",
     "gate:release": "node --test test/release.test.js",
-    "gates": "npm run gate:purity && npm run gate:secrets && npm run gate:network && npm run gate:adversarial && npm run gate:noop && npm run gate:compat && npm run gate:cutover && npm run gate:release",
+    "gate:redteam": "node --test test/redteam-quarantine.test.js test/redteam-export.test.js test/redteam-containment.test.js test/redteam-consent.test.js",
+    "gates": "npm run gate:purity && npm run gate:secrets && npm run gate:network && npm run gate:adversarial && npm run gate:noop && npm run gate:compat && npm run gate:cutover && npm run gate:redteam && npm run gate:release",
     "pack:dry-run": "npm pack --dry-run",
     "prepublishOnly": "npm test && npm run check && npm run gates"
   },

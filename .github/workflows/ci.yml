@@ -37,6 +37,8 @@ jobs:
         run: npm run gate:network
       - name: 'gate: adversarial - the hostile bundle corpus writes nothing outside staging'
         run: npm run gate:adversarial
+      - name: 'gate: redteam - surface spoofing, quarantine escape and never-export bypass stay closed'
+        run: npm run gate:redteam
       - name: 'gate: noop - nothing is applied without consent; a re-import is byte-identical'
         run: npm run gate:noop
       - name: 'gate: compat - the derived matrix still matches the researched verdicts'
