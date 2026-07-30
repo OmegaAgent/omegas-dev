@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
-import { lstat, open, readdir, realpath } from "node:fs/promises";
+import { lstat, open, readdir, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 
 const MAX_FILE_BYTES = 256 * 1024;
@@ -21,6 +21,8 @@ const IGNORED_DIRS = new Set([
   "vendor",
 ]);
 const PROJECT_MARKERS = new Set([".claude", ".codex", ".mcp.json", "CLAUDE.md", "AGENTS.md"]);
+const SYMLINK_REASON = "symlink";
+const OVERSIZE_REASON = `over ${MAX_FILE_BYTES / 1024} KB`;
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -47,9 +49,16 @@ function insideRoot(root, filename) {
   return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative));
 }
 
-async function readTextFile(filename, allowedRoot = path.dirname(filename)) {
+async function readTextFile(filename, allowedRoot = path.dirname(filename), report = null) {
+  const skip = (reason) => {
+    if (report) report(filename, reason);
+    return null;
+  };
   const info = await fileInfo(filename);
-  if (!info?.isFile() || info.isSymbolicLink() || info.size > MAX_FILE_BYTES) return null;
+  if (!info) return null;
+  if (info.isSymbolicLink()) return skip(SYMLINK_REASON);
+  if (!info.isFile()) return null;
+  if (info.size > MAX_FILE_BYTES) return skip(OVERSIZE_REASON);
   const [canonicalRoot, canonicalFile] = await Promise.all([
     realpath(allowedRoot).catch(() => null),
     realpath(filename).catch(() => null),
@@ -60,7 +69,8 @@ async function readTextFile(filename, allowedRoot = path.dirname(filename)) {
   if (!handle) return null;
   try {
     const before = await handle.stat();
-    if (!before.isFile() || before.size > MAX_FILE_BYTES) return null;
+    if (!before.isFile()) return null;
+    if (before.size > MAX_FILE_BYTES) return skip(OVERSIZE_REASON);
     const content = await handle.readFile("utf8");
     const after = await handle.stat();
     if (
@@ -105,16 +115,28 @@ function relativeLabel(rootLabel, root, filename) {
   return path.posix.join(rootLabel, path.relative(root, filename).split(path.sep).join("/"));
 }
 
-async function collectNamedFiles(directory, names, depth = 5) {
+// A symlink this walker would otherwise have descended into or imported. Entries it would have
+// ignored anyway (caches, hidden directories, unrelated file types) stay quiet.
+function symlinkWorthReporting(name, matches) {
+  if (IGNORED_DIRS.has(name) || name.startsWith(".")) return false;
+  return matches(name) || path.extname(name) === "";
+}
+
+async function collectFiles(directory, matches, depth, report) {
   const found = [];
   async function walk(current, remaining) {
     if (remaining < 0) return;
     for (const entry of await safeEntries(current)) {
-      if (entry.isSymbolicLink()) continue;
       const full = path.join(current, entry.name);
+      if (entry.isSymbolicLink()) {
+        // Refusing a link is a decision the user has to be able to see: on many machines every
+        // installed skill is a symlink into another agent's directory.
+        if (report && symlinkWorthReporting(entry.name, matches)) report(full, SYMLINK_REASON);
+        continue;
+      }
       if (entry.isDirectory()) {
         if (!IGNORED_DIRS.has(entry.name)) await walk(full, remaining - 1);
-      } else if (entry.isFile() && names.has(entry.name)) {
+      } else if (entry.isFile() && matches(entry.name)) {
         found.push(full);
       }
     }
@@ -123,26 +145,24 @@ async function collectNamedFiles(directory, names, depth = 5) {
   return found;
 }
 
-async function collectMarkdownFiles(directory, depth = 5) {
-  const found = [];
-  async function walk(current, remaining) {
-    if (remaining < 0) return;
-    for (const entry of await safeEntries(current)) {
-      if (entry.isSymbolicLink()) continue;
-      const full = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        if (!IGNORED_DIRS.has(entry.name)) await walk(full, remaining - 1);
-      } else if (entry.isFile() && entry.name.toLowerCase().endsWith(".md")) {
-        found.push(full);
-      }
-    }
-  }
-  await walk(directory, depth);
-  return found;
+function collectNamedFiles(directory, names, depth = 5, report = null) {
+  return collectFiles(directory, (name) => names.has(name), depth, report);
 }
 
-async function transferFile(filename, { root, rootLabel, source, kind }) {
-  const content = await readTextFile(filename, root);
+function collectMarkdownFiles(directory, depth = 5, report = null) {
+  return collectFiles(directory, (name) => name.toLowerCase().endsWith(".md"), depth, report);
+}
+
+// Warnings carry the same scope-relative label as the manifest, never an absolute path.
+function skipReporter(warnings, root, rootLabel) {
+  return (filename, reason) => {
+    const message = `skipped (${reason}): ${relativeLabel(rootLabel, root, filename)}`;
+    if (!warnings.includes(message)) warnings.push(message);
+  };
+}
+
+async function transferFile(filename, { root, rootLabel, source, kind, report }) {
+  const content = await readTextFile(filename, root, report);
   if (content === null) return null;
   return {
     source,
@@ -153,7 +173,7 @@ async function transferFile(filename, { root, rootLabel, source, kind }) {
   };
 }
 
-async function collectScopeFiles(root, rootLabel) {
+async function collectScopeFiles(root, rootLabel, report) {
   const contextFiles = [];
   const skills = [];
   const direct = [
@@ -163,7 +183,7 @@ async function collectScopeFiles(root, rootLabel) {
     [path.join(".codex", "AGENTS.md"), "codex", "instructions"],
   ];
   for (const [relative, source, kind] of direct) {
-    const item = await transferFile(path.join(root, relative), { root, rootLabel, source, kind });
+    const item = await transferFile(path.join(root, relative), { root, rootLabel, source, kind, report });
     if (item) contextFiles.push(item);
   }
 
@@ -172,8 +192,8 @@ async function collectScopeFiles(root, rootLabel) {
     [path.join(".claude", "memory"), "claude", "memory"],
     [path.join(".codex", "memories"), "codex", "memory"],
   ]) {
-    for (const filename of await collectMarkdownFiles(path.join(root, relative))) {
-      const item = await transferFile(filename, { root, rootLabel, source, kind });
+    for (const filename of await collectMarkdownFiles(path.join(root, relative), 5, report)) {
+      const item = await transferFile(filename, { root, rootLabel, source, kind, report });
       if (item) contextFiles.push(item);
     }
   }
@@ -189,17 +209,34 @@ async function collectScopeFiles(root, rootLabel) {
       path.join(root, relative),
       new Set(["SKILL.md"]),
       SKILL_SCAN_DEPTH,
+      report,
     )) {
-      const item = await transferFile(filename, { root, rootLabel, source, kind: "instructions" });
+      const item = await transferFile(filename, { root, rootLabel, source, kind: "instructions", report });
       if (item) skills.push(item);
     }
   }
   return { context_files: contextFiles, skills, mcp_servers: [] };
 }
 
+// Only `scheme://…` counts as a URL here. `Authorization: Bearer …` and `C:\dir\server.js` also
+// parse as URLs, with the whole value as an opaque path, so sanitizeUrl would hand them back
+// verbatim; they belong to the header rule and to the plain-argument rules below.
+function urlWithAuthority(value) {
+  const text = String(value).trim();
+  if (!/^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(text)) return null;
+  try {
+    return new URL(text);
+  } catch {
+    return null;
+  }
+}
+
 function redactArgument(value) {
   const text = String(value);
   if (/^[A-Za-z0-9-]+\s*:(?!\/\/)\s*.+/.test(text)) return text.replace(/(:\s*).+$/, "$1<redacted>");
+  // A connection string in argv carries its password in the userinfo, where none of the
+  // assignment rules can see it.
+  if (urlWithAuthority(text)) return sanitizeUrl(text);
   if (/(api[_-]?key|access[_-]?token|credential|signature|secret|password)=/i.test(text)) return text.replace(/=.+$/, "=<redacted>");
   if (/^bearer\s+/i.test(text)) return "Bearer <redacted>";
   if (credentialToken(text)) return "<redacted>";
@@ -251,11 +288,37 @@ function sanitizeUrl(raw) {
   }
 }
 
+// Vendor prefixes only. Shapeless high-entropy values (an AWS secret access key, a bare 40-char
+// hex string) need entropy scoring and the surrounding context to separate them from digests and
+// identifiers; that lands with the redaction layer, not here.
+const CREDENTIAL_PATTERNS = [
+  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g,
+  /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g,
+  /\bsk-[A-Za-z0-9_-]{20,}\b/g,
+  /\bAKIA[0-9A-Z]{16}\b/g,
+  // Slack bot, user, and legacy tokens, then app-level tokens.
+  /\bxox[abeoprs]-[A-Za-z0-9-]{10,}/g,
+  /\bxapp-[0-9]-[A-Za-z0-9-]{10,}/g,
+  // Stripe live keys: the underscore defeats the sk- pattern above.
+  /\b[sr]k_live_[A-Za-z0-9]{16,}\b/g,
+  /\bAIza[0-9A-Za-z_-]{30,}\b/g,
+  /\bnpm_[A-Za-z0-9]{20,}\b/g,
+  /\bhf_[A-Za-z0-9]{20,}\b/g,
+  // Three base64url segments: a signed JWT from any issuer.
+  /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
+];
+// Documentation and .env.example files carry token-shaped strings on purpose. Dropping a whole
+// file over one of those costs the user real content, so a named placeholder segment wins.
+const PLACEHOLDER_SEGMENT = /(?:^|[-_])(?:your|example|sample|placeholder|redacted|here|x{3,})(?:$|[-_])/i;
+
 function credentialToken(value) {
   const text = String(value).trim();
-  return /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(text)
-    || /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16})\b/.test(text)
-    || hasUnredactedBearer(text);
+  for (const pattern of CREDENTIAL_PATTERNS) {
+    for (const [match] of text.matchAll(pattern)) {
+      if (!PLACEHOLDER_SEGMENT.test(match)) return true;
+    }
+  }
+  return hasUnredactedBearer(text);
 }
 
 function hasUnredactedBearer(value) {
@@ -273,31 +336,82 @@ function hasUnredactedBearer(value) {
   return false;
 }
 
+// These files are markdown, so an assignment most plausibly appears inside a code span, a list
+// item, or a block quote. The framing has to come off before the key is read, in either order:
+// `- \`TOKEN=…\`` and `` `- TOKEN=…` `` are both real shapes.
+function stripMarkdownFraming(line) {
+  let text = line.trim();
+  for (let pass = 0; pass < 2; pass += 1) {
+    text = text.replace(/^(?:[-*+>]\s*)+/, "").replace(/^`+/, "").replace(/`+$/, "").trim();
+  }
+  return text;
+}
+
 function hasCredentialAssignment(line) {
-  const trimmed = line.trim().replace(/^export /, "").trim();
+  const trimmed = stripMarkdownFraming(line).replace(/^export /, "").trim();
   const delimiter = trimmed.includes("=") ? "=" : trimmed.includes(":") ? ":" : null;
   if (!delimiter) return false;
   const splitAt = trimmed.indexOf(delimiter);
-  const key = trimmed.slice(0, splitAt).trim().replace(/^[\x27"]+|[\x27"]+$/g, "");
+  const key = trimmed.slice(0, splitAt).trim().replace(/^[\x27"`]+|[\x27"`]+$/g, "");
   if (!key || !/^[A-Za-z0-9_-]+$/.test(key)) return false;
   const lowerKey = key.toLowerCase();
+  // A key that *is* the needle — TOKEN, SECRET, PASSWORD, KEY — has to count.
   if (!["key", "token", "secret", "password", "credential", "signature"].some(
-    (needle) => lowerKey.indexOf(needle) > 0,
+    (needle) => lowerKey.includes(needle),
   )) return false;
-  const candidate = trimmed
-    .slice(splitAt + 1)
-    .trim()
-    .replace(/^[\x27"]+|[\x27"]+$/g, "")
-    .split(/\s+/)[0] || "";
-  return candidate.length >= 8
-    && !candidate.startsWith("${")
-    && !candidate.startsWith("<")
-    && !/^(?:example|placeholder|redacted|your[-_])/i.test(candidate);
+  const value = trimmed.slice(splitAt + 1).trim().replace(/^[\x27"`]+|[\x27"`]+$/g, "");
+  // A colon is prose punctuation as well as an assignment: "Token: describe the token you want"
+  // must not cost the user the whole file. A secret is a single token, never a sentence.
+  if (delimiter === ":" && /\s/.test(value)) return false;
+  const candidate = value.split(/\s+/)[0] || "";
+  return candidate.length >= 8 && !isPlaceholderValue(candidate);
+}
+
+// A credential documented inline sits inside a code span: Set `MY_TOKEN=…` before running.
+function assignmentCandidates(line) {
+  const spans = line.match(/`[^`]+`/g) || [];
+  return [line, ...spans.map((span) => span.slice(1, -1))];
+}
+
+function isPlaceholderValue(value) {
+  return value.length < 6
+    || value.startsWith("$")
+    || value.startsWith("<")
+    || value.startsWith("{")
+    || /^(?:password|passwd|pass|pw|secret|token|credential|changeme)$/i.test(value)
+    || /^(?:example|placeholder|redacted|your[-_])/i.test(value)
+    || PLACEHOLDER_SEGMENT.test(value);
+}
+
+// scheme://user:password@host — the password sits in the authority, where neither the assignment
+// nor the header rule can see it.
+const CREDENTIAL_URL = /\b[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s:/@]*:([^\s/@]+)@/g;
+
+function hasCredentialUrl(content) {
+  for (const [, secret] of String(content).matchAll(CREDENTIAL_URL)) {
+    if (!isPlaceholderValue(secret)) return true;
+  }
+  return false;
+}
+
+// A credential-bearing header embedded in prose or a shell example, which the whole-line
+// assignment parse cannot reach: curl -H "x-api-key: abc123def456".
+const CREDENTIAL_HEADER =
+  /\b(?:x-)?(?:api[-_]?key|authorization|access[-_]?token|token|secret|password|credential|signature)\s*:\s*([^\s"\x27]{12,})/gi;
+
+function hasCredentialHeader(line) {
+  for (const [, value] of stripMarkdownFraming(line).matchAll(CREDENTIAL_HEADER)) {
+    // A digit keeps ordinary prose ("Token: configuration") out of a whole-file exclusion.
+    if (/\d/.test(value) && !isPlaceholderValue(value)) return true;
+  }
+  return false;
 }
 
 export function containsCredentialLike(content) {
-  if (credentialToken(content)) return true;
-  return content.split(/\r?\n/).some(hasCredentialAssignment);
+  if (credentialToken(content) || hasCredentialUrl(content)) return true;
+  return content
+    .split(/\r?\n/)
+    .some((line) => assignmentCandidates(line).some(hasCredentialAssignment) || hasCredentialHeader(line));
 }
 
 function removeSensitiveFiles(scope, warnings) {
@@ -328,8 +442,8 @@ function normalizeMcpServers(value, source, sourceFile) {
   });
 }
 
-async function readJson(filename, allowedRoot = path.dirname(filename)) {
-  const text = await readTextFile(filename, allowedRoot);
+async function readJson(filename, allowedRoot = path.dirname(filename), report = null) {
+  const text = await readTextFile(filename, allowedRoot, report);
   if (text === null) return null;
   try {
     return JSON.parse(text);
@@ -394,41 +508,44 @@ export function parseCodexMcpToml(text, sourceFile = ".codex/config.toml") {
   }));
 }
 
-async function collectMcpForProject(projectRoot, rootLabel, claudeConfig) {
+async function collectMcpForProject(projectRoot, rootLabel, claudeConfig, report) {
   const items = [];
   for (const relative of [".mcp.json", path.join(".claude", "settings.json"), path.join(".claude", "settings.local.json")]) {
-    const config = await readJson(path.join(projectRoot, relative), projectRoot);
+    const config = await readJson(path.join(projectRoot, relative), projectRoot, report);
     items.push(...normalizeMcpServers(config?.mcpServers, "claude", path.posix.join(rootLabel, relative.split(path.sep).join("/"))));
   }
   const projectConfig = claudeConfig?.projects?.[projectRoot];
   items.push(...normalizeMcpServers(projectConfig?.mcpServers, "claude", ".claude.json"));
   const codexPath = path.join(projectRoot, ".codex", "config.toml");
-  const codex = await readTextFile(codexPath, projectRoot);
+  const codex = await readTextFile(codexPath, projectRoot, report);
   if (codex !== null) items.push(...parseCodexMcpToml(codex, path.posix.join(rootLabel, ".codex/config.toml")));
   return items;
 }
 
-async function collectClaudeProjectMemory(home, projectRoot, rootLabel) {
+async function collectClaudeProjectMemory(home, projectRoot, rootLabel, warnings) {
   // Claude Code encodes an absolute project path by replacing path separators with `-`.
   // We use this only to locate the directory locally; the absolute path never enters the manifest.
   const encodedProject = projectRoot.split(path.sep).join("-");
   const memoryRoot = path.join(home, ".claude", "projects", encodedProject, "memory");
+  const memoryLabel = path.posix.join(rootLabel, ".claude-memory");
+  const report = skipReporter(warnings, memoryRoot, memoryLabel);
   const memories = [];
-  for (const filename of await collectMarkdownFiles(memoryRoot, 2)) {
+  for (const filename of await collectMarkdownFiles(memoryRoot, 2, report)) {
     const item = await transferFile(filename, {
       root: memoryRoot,
-      rootLabel: path.posix.join(rootLabel, ".claude-memory"),
+      rootLabel: memoryLabel,
       source: "claude",
       kind: "memory",
+      report,
     });
     if (item) memories.push(item);
   }
   return memories;
 }
 
-async function discoverProjectRoots(roots, maxDepth) {
+async function discoverProjectRoots(roots, maxDepth, warnings) {
   const projects = new Set();
-  async function walk(directory, depth) {
+  async function walk(directory, depth, report) {
     const entries = await safeEntries(directory);
     if (entries.some((entry) => PROJECT_MARKERS.has(entry.name))) projects.add(directory);
     if (depth >= maxDepth) return;
@@ -436,15 +553,26 @@ async function discoverProjectRoots(roots, maxDepth) {
       // A home scan should find user projects, not editor extensions or agent runtime state under
       // directories such as .vscode, .cursor, .openclaw, or .gstack. An explicitly supplied hidden
       // root is still scanned as the root; only hidden descendants are excluded.
-      if (!entry.isDirectory() || entry.isSymbolicLink() || entry.name.startsWith(".") || IGNORED_DIRS.has(entry.name)) continue;
-      await walk(path.join(directory, entry.name), depth + 1);
+      if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
+      if (entry.name.startsWith(".") || IGNORED_DIRS.has(entry.name)) continue;
+      const full = path.join(directory, entry.name);
+      if (entry.isSymbolicLink()) {
+        // Only a link to a directory was ever a scan candidate. Resolving the type reads nothing;
+        // the link is still refused rather than followed.
+        const target = await stat(full).catch(() => null);
+        if (target?.isDirectory()) report(full, SYMLINK_REASON);
+        continue;
+      }
+      await walk(full, depth + 1, report);
     }
   }
-  for (const root of roots) await walk(root, 0);
+  for (const root of roots) {
+    await walk(root, 0, skipReporter(warnings, root, path.basename(root)));
+  }
   return [...projects].sort();
 }
 
-async function collectGlobal(home, claudeConfig) {
+async function collectGlobal(home, claudeConfig, report) {
   const rootLabel = "global";
   const contextFiles = [];
   const skills = [];
@@ -454,7 +582,7 @@ async function collectGlobal(home, claudeConfig) {
     [path.join(".codex", "memories", "MEMORY.md"), "codex", "memory"],
     [path.join(".codex", "memories", "memory_summary.md"), "codex", "memory"],
   ]) {
-    const item = await transferFile(path.join(home, relative), { root: home, rootLabel, source, kind });
+    const item = await transferFile(path.join(home, relative), { root: home, rootLabel, source, kind, report });
     if (item) contextFiles.push(item);
   }
   for (const [relative, source] of [[path.join(".claude", "skills"), "claude"], [path.join(".codex", "skills"), "codex"]]) {
@@ -464,13 +592,14 @@ async function collectGlobal(home, claudeConfig) {
       path.join(home, relative),
       new Set(["SKILL.md"]),
       SKILL_SCAN_DEPTH,
+      report,
     )) {
-      const item = await transferFile(filename, { root: home, rootLabel, source, kind: "instructions" });
+      const item = await transferFile(filename, { root: home, rootLabel, source, kind: "instructions", report });
       if (item) skills.push(item);
     }
   }
   const mcpServers = normalizeMcpServers(claudeConfig?.mcpServers, "claude", ".claude.json");
-  const codex = await readTextFile(path.join(home, ".codex", "config.toml"), home);
+  const codex = await readTextFile(path.join(home, ".codex", "config.toml"), home, report);
   if (codex !== null) mcpServers.push(...parseCodexMcpToml(codex));
   const uniqueSkills = [];
   const skillDigests = new Set();
@@ -483,40 +612,47 @@ async function collectGlobal(home, claudeConfig) {
 }
 
 export async function discoverTransfer({ roots, home, maxDepth = 4 }) {
+  const warnings = [];
   const canonicalRoots = [];
   for (const root of roots) {
     const canonical = await realpath(root).catch(() => null);
     if (canonical && !canonicalRoots.includes(canonical)) canonicalRoots.push(canonical);
   }
-  const claudeConfig = await readJson(path.join(home, ".claude.json"), home);
+  const globalReport = skipReporter(warnings, home, "global");
+  const claudeConfig = await readJson(path.join(home, ".claude.json"), home, globalReport);
   const canonicalHome = await realpath(home).catch(() => null);
   // The user's home directory contains the global .claude/.codex entrypoints by design. When the
   // CLI is launched from ~, those markers must not manufacture a "home" project Space or cause
   // global skills to be scanned again as project-local skills.
-  const projectRoots = (await discoverProjectRoots(canonicalRoots, maxDepth)).filter(
+  const projectRoots = (await discoverProjectRoots(canonicalRoots, maxDepth, warnings)).filter(
     (projectRoot) => projectRoot !== canonicalHome,
   );
   const projects = [];
   const envFiles = [];
-  const warnings = [];
   for (const projectRoot of projectRoots) {
     const name = path.basename(projectRoot);
     const key = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "project"}-${randomUUID().slice(0, 8)}`;
-    const scope = await collectScopeFiles(projectRoot, name);
-    scope.context_files.push(...(await collectClaudeProjectMemory(home, projectRoot, name)));
-    scope.mcp_servers.push(...(await collectMcpForProject(projectRoot, name, claudeConfig)));
+    const report = skipReporter(warnings, projectRoot, name);
+    const scope = await collectScopeFiles(projectRoot, name, report);
+    scope.context_files.push(...(await collectClaudeProjectMemory(home, projectRoot, name, warnings)));
+    scope.mcp_servers.push(...(await collectMcpForProject(projectRoot, name, claudeConfig, report)));
     removeSensitiveFiles(scope, warnings);
     projects.push({ key, name, source_label: name, ...scope });
     for (const entry of await safeEntries(projectRoot)) {
-      if (!entry.isFile() || !entry.name.startsWith(".env")) continue;
+      if (!entry.name.startsWith(".env")) continue;
       if ([".env.example", ".env.sample", ".env.template"].includes(entry.name)) continue;
       const filename = path.join(projectRoot, entry.name);
+      if (entry.isSymbolicLink()) {
+        report(filename, SYMLINK_REASON);
+        continue;
+      }
+      if (!entry.isFile()) continue;
       const fingerprint = await fingerprintFile(filename, projectRoot);
       if (!fingerprint) continue;
       envFiles.push({ projectKey: key, projectName: name, filename, allowedRoot: projectRoot, fingerprint, sourceLabel: path.posix.join(name, entry.name) });
     }
   }
-  const global = await collectGlobal(home, claudeConfig);
+  const global = await collectGlobal(home, claudeConfig, globalReport);
   removeSensitiveFiles(global, warnings);
   return {
     manifest: {

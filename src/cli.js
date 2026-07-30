@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdir, open } from "node:fs/promises";
+import { chmod, mkdir, open, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -34,15 +34,16 @@ function parseArgs(argv) {
   return options;
 }
 
-function help() {
+export function help() {
   return `Usage: npx omegas-dev [options]\n\n` +
     `  --root <dir>   Root to scan (repeatable; defaults to the current directory)\n` +
     `  --api <url>    Omegas API base URL\n` +
     `  --unsafe-development-api  Allow an alternate HTTPS or loopback API for local testing\n` +
-    `  --output <file> Sensitive local preview path\n` +
+    `  --output <file> Sensitive local preview path (default: ~/${PREVIEW_SEGMENTS.join("/")})\n` +
     `  --dry-run      Discover and write the preview without contacting Omegas\n` +
     `  --no-open      Print the browser link without opening it\n` +
-    `  --yes          Open the browser automatically; secrets still require a separate answer\n`;
+    `  --yes          Open the browser automatically; secrets still require a separate answer\n` +
+    `  --help, -h     Show this help\n`;
 }
 
 async function askYesNo(rl, question, fallback = false) {
@@ -58,9 +59,39 @@ function openBrowser(url) {
   child.unref();
 }
 
-function defaultOutput() {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  return path.join(os.homedir(), "Downloads", `omegas-transfer-preview-${timestamp}.json`);
+// The preview holds the full plaintext of everything discovered. It belongs in the tool's own
+// state directory, not in a directory that is routinely synced, backed up, and indexed.
+const PREVIEW_SEGMENTS = [".omegas", "state", "previews"];
+
+export function previewDirectory(home) {
+  return path.join(home, ...PREVIEW_SEGMENTS);
+}
+
+export async function ensurePreviewDirectory(home) {
+  const directory = previewDirectory(home);
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  // mkdir's mode is masked by the umask, so each level is set back to owner-only explicitly.
+  for (let level = PREVIEW_SEGMENTS.length; level > 0; level -= 1) {
+    await chmod(path.join(home, ...PREVIEW_SEGMENTS.slice(0, level)), 0o700);
+  }
+  return directory;
+}
+
+export function previewFilename(home, now = new Date()) {
+  const timestamp = now.toISOString().replace(/[:.]/g, "-");
+  return path.join(previewDirectory(home), `omegas-transfer-preview-${timestamp}.json`);
+}
+
+export async function offerPreviewDeletion(rl, filename, interactive) {
+  if (!interactive) return false;
+  const remove = await askYesNo(rl, `\nDelete the local preview now?\n${filename}`);
+  if (!remove) {
+    process.stdout.write("Kept. Delete it yourself when you are done reviewing it.\n");
+    return false;
+  }
+  await rm(filename, { force: true });
+  process.stdout.write("Deleted the local preview.\n");
+  return true;
 }
 
 function manifestCounts(manifest) {
@@ -109,7 +140,7 @@ async function loadSecretBundles(selected) {
   return bundles;
 }
 
-async function writePreview(filename, manifest, secretBundles) {
+export async function writePreview(filename, manifest, secretBundles) {
   const preview = {
     manifest,
     secret_files: secretBundles.map((bundle) => ({
@@ -159,7 +190,7 @@ export async function main(argv) {
     process.stdout.write(
       `Found ${counts.projects} project(s), ${counts.context} context file(s), ${counts.skills} skill(s), and ${counts.mcp} MCP server proposal(s).\n`,
     );
-    for (const warning of warnings) process.stdout.write(`Skipped: ${warning}\n`);
+    for (const warning of warnings) process.stdout.write(`Warning: ${warning}\n`);
     process.stdout.write(`Upload destination: ${options.api}\n`);
 
     const selectedSecrets = interactive ? await chooseSecretFiles(rl, envFiles) : [];
@@ -177,30 +208,32 @@ export async function main(argv) {
     }
     // Secret values are not read from disk until the browser has claimed the transfer.
     const secretFiles = await loadSecretBundles(selectedSecrets);
-    const output = path.resolve(options.output || defaultOutput());
+    const home = os.homedir();
+    const output = options.output ? path.resolve(options.output) : previewFilename(home);
+    if (!options.output) await ensurePreviewDirectory(home);
     await writePreview(output, manifest, secretFiles);
     process.stdout.write(`Sensitive local preview: ${output}\n`);
 
     if (options.dryRun) {
       process.stdout.write("Dry run complete. Nothing was uploaded.\n");
-      return;
+    } else {
+      if (!api || !session) throw new Error("transfer session was not created");
+      process.stdout.write(
+        "Nothing has been uploaded yet. Open the preview file above to review exactly what will be sent.\n",
+      );
+      const approved = await askYesNo(
+        rl,
+        `Upload this transfer to ${claim?.claimant_hint ?? "the claimed account"}?`,
+      );
+      if (!approved) throw new Error("transfer cancelled before any upload");
+      process.stdout.write("Uploading the review bundle…\n");
+      const result = await api.upload(session.transfer_id, session.device_token, {
+        manifest,
+        secret_files: secretFiles,
+      });
+      process.stdout.write(`\nYour transfer is complete. Edit MCP Servers, Skills, context, and project-to-Space mapping here:\n${result.edit_url}\n`);
     }
-
-    if (!api || !session) throw new Error("transfer session was not created");
-    process.stdout.write(
-      "Nothing has been uploaded yet. Open the preview file above to review exactly what will be sent.\n",
-    );
-    const approved = await askYesNo(
-      rl,
-      `Upload this transfer to ${claim?.claimant_hint ?? "the claimed account"}?`,
-    );
-    if (!approved) throw new Error("transfer cancelled before any upload");
-    process.stdout.write("Uploading the review bundle…\n");
-    const result = await api.upload(session.transfer_id, session.device_token, {
-      manifest,
-      secret_files: secretFiles,
-    });
-    process.stdout.write(`\nYour transfer is complete. Edit MCP Servers, Skills, context, and project-to-Space mapping here:\n${result.edit_url}\n`);
+    await offerPreviewDeletion(rl, output, interactive);
   } finally {
     rl.close();
   }

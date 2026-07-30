@@ -20,5 +20,11 @@ reproduction needed, and never send live secrets.
 - MCP configuration is imported as disconnected metadata. Credentials, authorization headers, URL
   query strings, and token-shaped values are not transferred.
 
-The local preview intentionally contains transferable context. Treat it as sensitive and delete it
-after inspection.
+The local preview intentionally contains transferable context. Treat it as sensitive. It is written
+to `~/.omegas/state/previews` (owner-only directories, mode `0600`), and the run ends by offering to
+delete it; the default answer keeps it, so delete it yourself once you are done.
+
+Credential detection is a defence in depth, not a guarantee. It recognizes named vendor token
+shapes, credential-bearing URLs and headers, and assignments to credential-named keys. It does not
+recognize shapeless high-entropy values — an AWS secret access key or a bare hex string sitting on
+its own, with nothing naming it — and it reads only the entrypoints listed in the README.

@@ -1,6 +1,6 @@
 {
   "name": "omegas-dev",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Open-source viewer and transfer tool for personal Claude Code and Codex configs",
   "type": "module",
   "bin": {

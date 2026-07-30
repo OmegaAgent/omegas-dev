@@ -12,8 +12,8 @@ npx omegas-dev --dry-run
 ```
 
 The dry run stays local. It scans documented Claude Code and Codex configuration
-entrypoints, writes a readable JSON preview to `~/Downloads`, and does not contact Omegas
-or upload anything.
+entrypoints, writes a readable JSON preview to `~/.omegas/state/previews`, and does not
+contact Omegas or upload anything.
 
 ## Why this exists
 
@@ -57,8 +57,14 @@ Add one or more roots when your projects live elsewhere:
 npx omegas-dev --dry-run --root ~/Code --root ~/Work
 ```
 
-The preview contains transferable context and should be treated as sensitive. It is
-created with mode `0600`; remove it when you are finished reviewing it.
+The preview contains the full text of everything discovered, so it is sensitive. It is
+written to `~/.omegas/state/previews` with mode `0600` inside owner-only directories, and
+the run ends by offering to delete it. The default answer keeps the file; `--output`
+writes it wherever you prefer instead.
+
+Anything the scan refuses is reported rather than dropped in silence: files over 256 KB,
+refused symlinks, and files excluded for containing credential material each print a
+`Warning:` line naming the path.
 
 ## Review and transfer
 
@@ -106,11 +112,11 @@ Read [SECURITY.md](SECURITY.md) for the complete trust model and private reporti
 Usage: npx omegas-dev [options]
 
   --root <dir>   Root to scan (repeatable; defaults to the current directory)
-  --output <file> Sensitive local preview path
+  --output <file> Sensitive local preview path (default: ~/.omegas/state/previews)
   --dry-run      Discover and write the preview without contacting Omegas
   --no-open      Print the browser link without opening it
-  --yes          Open the browser automatically; upload still requires confirmation
-  --help         Show command help
+  --yes          Open the browser automatically; secrets still require a separate answer
+  --help, -h     Show this help
 ```
 
 The development-only `--api` override requires `--unsafe-development-api` and accepts only
