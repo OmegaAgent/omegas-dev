@@ -343,7 +343,7 @@ function roleFor(relative, roles) {
 
 // ── detection: declarations only, never a spawned process ──────────────────────────
 
-async function detectPresence(adapter, env) {
+export async function detectPresence(adapter, env) {
   const checks = adapter.detect?.present_if ?? [];
   if (checks.length === 0) return false;
   for (const check of checks) {

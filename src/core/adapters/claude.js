@@ -415,7 +415,7 @@ export default {
       emit: {
         target: "${CLAUDE_HOME}/skills/{identity}/",
         write_mode: "relocate_dir",
-        disabled_form: { key_path: "settings.skillOverrides.{identity}", value: "off" },
+        disabled_form: { mode: "companion_key", surface_id: "claude.settings.user", key_path: "skillOverrides.{identity}", value: "off" },
       },
       caps: { max_bytes: 1048576 },
       notes: "Trust escalates to EXECUTABLE when an asset carries the exec bit (kinds.js maxTier; escalation only). Command name comes from the DIRECTORY, not frontmatter `name` (CLA §2.4). Same-name precedence across scopes is UNKNOWN (CLA §12.1) — coexist is the safe default. 20+ undocumented frontmatter keys are the norm (CLA §2.3): everything outside recognized_keys round-trips verbatim in payload.unrecognized.",
@@ -473,7 +473,7 @@ export default {
       emit: {
         target: "${PROJECT}/.claude/skills/{identity}/",
         write_mode: "relocate_dir",
-        disabled_form: { key_path: "settings.skillOverrides.{identity}", value: "off" },
+        disabled_form: { mode: "companion_key", surface_id: "claude.settings.user", key_path: "skillOverrides.{identity}", value: "off" },
       },
       caps: { max_bytes: 1048576 },
       notes: "CLA §2.4 — a project skill's `allowed-tools` only takes effect after the workspace trust dialog is accepted, so a project-scope import can look inert until the user trusts the workspace (manifest §5.4 limits v1 imports to user scope for exactly this reason).",
@@ -549,7 +549,7 @@ export default {
       portability: { class: "PORTABLE", rewrites: [] },
       trust_tier: "INERT",
       capability: "native",
-      emit: { target: "${CLAUDE_HOME}/commands/{identity}.md", write_mode: "create_file" },
+      emit: { target: "${CLAUDE_HOME}/commands/{identity}", write_mode: "create_file" },
       notes: "CLA §2.1 — commands were merged into skills: .claude/commands/deploy.md and .claude/skills/deploy/SKILL.md both produce /deploy with the same frontmatter, so an importer can normalise legacy commands into skill directories losslessly.",
     },
     {
@@ -576,7 +576,7 @@ export default {
       portability: { class: "PORTABLE", rewrites: [] },
       trust_tier: "INERT",
       capability: "native",
-      emit: { target: "${PROJECT}/.claude/commands/{identity}.md", write_mode: "create_file" },
+      emit: { target: "${PROJECT}/.claude/commands/{identity}", write_mode: "create_file" },
       notes: "Nested command directories are flattened by the Codex prompts target (COD §4.6); the default cross-runtime target is a Codex SKILL, which keeps repo scope and nesting.",
     },
 
@@ -615,7 +615,7 @@ export default {
       emit: {
         target: "${HOME}/.claude.json",
         write_mode: "merge_key",
-        disabled_form: { key_path: "disabled", value: true },
+        disabled_form: { mode: "in_entry", key_path: "disabled", value: true },
         post_import_note: "stdio servers execute a local binary; enabling is a second explicit action",
       },
       notes: "EXECUTABLE when `command` is present, DECLARATIVE when the entry is remote-only (`url`). Fields never merge across scopes — the highest-precedence source supplies the whole entry (CLA §3.1). `${VAR}` / `${VAR:-default}` expansion applies to command, args, env, url and headers; an unset variable warns and passes the literal through (CLA §3.2).",
@@ -654,7 +654,11 @@ export default {
       trust_tier: "EXECUTABLE",
       capability: "native",
       derive_edges: [{ rel: "references_path", from: "argv0", detector: "existing_dotfile_path" }],
-      emit: { target: "${HOME}/.claude.json", write_mode: "merge_key", disabled_form: { key_path: "disabled", value: true } },
+      emit: {
+        target: "${HOME}/.claude.json",
+        write_mode: "merge_key",
+        disabled_form: { mode: "in_entry", key_path: "disabled", value: true },
+      },
       notes: "The project key is an ABSOLUTE path, so it must be re-derived on the target (manifest §1.1). CLA §8.3: the projects[] list is also stale on the surveyed machine — reconcile against the filesystem, never trust the list. Identity capture {1} is the server name; {0} is the project path.",
     },
     {
@@ -688,7 +692,7 @@ export default {
       emit: {
         target: "${PROJECT}/.mcp.json",
         write_mode: "merge_key",
-        disabled_form: { key_path: "disabled", value: true },
+        disabled_form: { mode: "in_entry", key_path: "disabled", value: true },
         post_import_note: "never pre-approve an imported .mcp.json server: enableAllProjectMcpServers and enabledMcpjsonServers are ignored until the workspace trust dialog is accepted (CLA §3.4), and pre-approving would defeat a deliberate supply-chain control",
       },
       notes: "CLA §3.1 — plugins and connectors match duplicates by ENDPOINT (same URL/command), while the three file scopes match by name. `${CLAUDE_PROJECT_DIR}` is set in the server's environment, not Claude's, so in .mcp.json it needs a default: ${CLAUDE_PROJECT_DIR:-.}.",
@@ -793,7 +797,7 @@ export default {
       emit: {
         target: "${CLAUDE_HOME}/settings.json",
         write_mode: "merge_key",
-        disabled_form: { key_path: "hooks_disabled", value: "<moved here on import>" },
+        disabled_form: { mode: "relocate_key", key_path: "hooks_disabled" },
         post_import_note: "hooks import disabled; enabling is a second explicit action",
       },
       notes: "Aggregate, not override — every matching hook from every source runs (CLA §4.1). Identity is the three key-path captures Event.i.j; the design doc's four-part <Event>:<matcher>:<i>:<j> form cannot be produced from the key path alone because `matcher` is a sibling VALUE, not a capture — it is preserved in payload and rendered in the report. A hook's behaviour is not fully described by settings: sibling files (the .quiet sentinel) can mute it (CLA §4.4), carried as a `gated_by` edge.",
@@ -897,7 +901,7 @@ export default {
       emit: {
         target: "${CLAUDE_HOME}/hooks/{identity}",
         write_mode: "create_file",
-        disabled_form: { key_path: "mode", value: "0600" },
+        disabled_form: { mode: "no_exec_bit", file_mode: 384 },
         post_import_note: "written without the exec bit; the user sets it as a second explicit action after reading the body",
       },
       caps: { max_bytes: 1048576 },
@@ -1480,7 +1484,7 @@ export default {
       emit: {
         target: "${CLAUDE_HOME}/settings.json",
         write_mode: "merge_key",
-        disabled_form: { key_path: "statusLine", value: null },
+        disabled_form: { mode: "in_entry", key_path: "$", value: null },
         post_import_note: "runs a shell command on every render; quarantined on import like any other executable surface",
       },
       notes: "RESERVED for v1.1: declared, not populated in v1. Claude runs a shell command; Codex tui.status_line takes a list of named item IDs — no mechanical conversion exists, so the cross-runtime verdict is UNSUPPORTED (§3.2).",

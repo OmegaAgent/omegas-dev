@@ -2,9 +2,56 @@
 
 ## Unreleased
 
-The read-only core of Continuity. Two new subcommands explain a configuration; the hosted
-transfer flow is unchanged and is still reached by a bare invocation and its own flags.
+The core of Continuity. New subcommands explain a configuration, export it as a redacted
+bundle, and land it on another machine; the hosted transfer flow is unchanged and is still
+reached by a bare invocation and its own flags.
 
+- `omegas-dev diff` previews exactly what importing a bundle would write, and writes
+  nothing at all — no staging directory, no ledger line, no temp file, asserted by a
+  byte-comparison of the whole target home before and after.
+- `omegas-dev import` applies nothing without a recorded consent against a specific
+  rendered diff. `--yes-inert` covers inert additions only; an authority change, an
+  executable item, or a write that replaces existing content always needs an individual
+  answer, and there is no blanket `--yes` to ask for. A non-interactive run with no consent
+  flag prints the plan and exits 3.
+- Permission rules are **additions, never merges**. Every array position resolves to an
+  append against the array as it stands on the target, so importing the source's rule 3
+  cannot overwrite the target's rule 3, and an identical rule already present is a no-op.
+  Wildcard-class rules (`Bash(*)`, `WebFetch(domain:*)`) are labelled and hard-blocked from
+  any bulk accept.
+- Everything executable lands **written but inert**, in the runtime's own disabled idiom —
+  `"disabled": true`, `enabled = false`, a `hooks_disabled` block, `skillOverrides: "off"`,
+  `[[skills.config]] enabled = false`, or simply no execute bit. `omegas-dev enable
+  <item_id>` is the separate second action: it shows the current content, verifies it still
+  hashes to the value pinned at import, and refuses on drift.
+- The write path stages at `0700` under the target home, snapshots every file it will touch,
+  re-verifies the whole plan's fingerprints immediately before each write, writes through
+  `O_NOFOLLOW | O_EXCL` temp files plus `rename` with a write-time containment re-check, and
+  rolls every file back — verifying each restore — on any failure. New exit codes: 6
+  integrity, 7 containment, 8 drift, 9 rolled back.
+- Credentials are re-bound on import, one decision per ref, applied to every site that ref
+  occupies. A resolved value reaches the target file and nothing else: not the plan, not the
+  ledger, not the diff you consent to, which renders the value's *source* instead. Leaving
+  one unset is valid and lands the item disabled with a "needs a credential" status.
+- A local `ledger.jsonl` records what was imported, from which bundle, on whose say-so, and
+  which items are pinned to which content hash. It holds hashes and decisions, never bytes
+  and never a credential.
+- Security Gate 1 ships: 70+ hostile bundles built in-test — traversal in raw, NFD,
+  percent-encoded, backslash and mixed-separator forms, absolute, home-relative and
+  drive-letter names, control bytes, overlong paths, case-fold collisions, duplicate
+  entries, count and size bombs, tampered digests, truncation, prototype-poisoning key
+  paths, identity traversal, `curl | sh` hook plants, shell-spawning MCP servers, `Bash(*)`
+  widening, a `bypassPermissions` flip and a `CLAUDE.md` exfiltration payload. Every one is
+  blocked or quarantined, with zero writes outside the state directory.
+- Hardening found while building the above: bundle entry names that percent-decode into a
+  traversal are refused; duplicate entry names are refused rather than silently
+  last-wins; entry-count, per-entry and total-size caps are enforced before parsing; and
+  path tokenization now only substitutes values that are absolute paths, fixing exported key
+  paths being corrupted into `permissions.allow[${XPC_SERVICE_NAME}]` on machines where an
+  environment variable holds a one-character value.
+- `docs/IMPORT_MODEL.md` documents the trust tiers, consent rules, quarantine and enable
+  flow, rollback guarantees and ledger — including an explicit list of what the model does
+  not protect against.
 - `omegas-dev scan` and `omegas-dev report` read every declared configuration surface and
   explain it: what is configured, which layer it came from, and why a given value wins.
   Both are read-only, and `src/core/` contains no network module, no subprocess and no

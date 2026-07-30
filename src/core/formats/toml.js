@@ -540,11 +540,11 @@ function orderedKeys(node, order) {
   return keys;
 }
 
-function renderKey(key) {
+export function renderKey(key) {
   return /^[A-Za-z0-9_-]+$/.test(key) ? key : JSON.stringify(key);
 }
 
-function inline(value) {
+export function inline(value) {
   if (typeof value === "string") return JSON.stringify(value);
   if (typeof value === "boolean") return String(value);
   if (typeof value === "number") {

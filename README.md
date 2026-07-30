@@ -106,6 +106,39 @@ where each value lives on this machine — never a value, not even hashed.
 `docs/BUNDLE_FORMAT.md` is the published format contract, written for anyone implementing a
 reader.
 
+## Land a setup on another machine
+
+```sh
+npx omegas-dev diff   --bundle setup.ocb.jsonl    # exactly what it would write. writes nothing
+npx omegas-dev import --bundle setup.ocb.jsonl    # the same plan, applied item by item
+npx omegas-dev enable claude:user:hook:Stop.0.0   # turn on one quarantined item
+```
+
+`diff` creates no staging directory, no ledger line and no temporary file — a test
+byte-compares the whole target home before and after to keep that true.
+
+`import` applies nothing without a recorded consent against a specific rendered diff.
+Instruction diffs always render in full, because a `CLAUDE.md` is inert to your OS and
+executed by your agent every session. Permission rules are **additions**: an array position
+resolves to an append against the array on your machine, so importing rule 3 can never
+overwrite yours. `--yes-inert` accepts inert additions only and can never cover an authority
+change, an executable item, or a write that replaces content you already have. There is no
+blanket `--yes`.
+
+Everything executable — hook commands, stdio MCP servers, skill scripts — lands **written
+but inert**, in the runtime's own disabled idiom (`"disabled": true`, `enabled = false`, a
+`hooks_disabled` block, no execute bit). You read it in place, then `enable` it as a separate
+act; `enable` shows the current content, verifies it still matches the hash recorded at
+import, and refuses if it has changed since.
+
+Writes are staged at `0700`, snapshotted, fingerprint-re-verified immediately before each
+write, made through `O_NOFOLLOW | O_EXCL` temp files plus `rename`, and rolled back in full
+on any failure. Drift between preview and apply aborts the whole import (exit `8`); a
+failure mid-apply restores every file and verifies the restore (exit `9`).
+
+`docs/IMPORT_MODEL.md` is the complete model, including an honest list of what it does not
+protect you from.
+
 ## Inspect locally
 
 ```sh
@@ -178,6 +211,23 @@ Usage: npx omegas-dev [options]
   --no-open      Print the browser link without opening it
   --yes          Open the browser automatically; secrets still require a separate answer
   --help, -h     Show this help
+```
+
+The subcommands take their own flags:
+
+```text
+Usage: npx omegas-dev <command> [options]
+
+  scan | report | export | diff | import | enable
+
+  --home <dir>          Home directory to read (default: your home directory)
+  --root <dir>          Project root to scan for project-scope config (repeatable)
+  --json                Emit the machine-readable result envelope on stdout
+  --out <path>          export only: where to write the bundle
+  --payload-policy <p>  export only: definition | definition+scripts | full
+  --bundle <path>       diff / import: the bundle to read
+  --yes-inert           import only: bulk-accept inert additions. Never covers an
+                        authority item, an executable item, or a replacement
 ```
 
 The development-only `--api` override requires `--unsafe-development-api` and accepts only

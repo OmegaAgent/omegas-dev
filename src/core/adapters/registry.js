@@ -7,11 +7,13 @@ import {
   ALGEBRAS,
   CANONICAL_KINDS,
   CAPABILITY_LEVELS,
+  DISABLED_FORM_MODES,
   FORMATS,
   PORTABILITY_VERDICTS,
   SCOPES,
   SEVERITIES,
   TRUST_TIERS,
+  WRITE_MODES,
 } from "../model/kinds.js";
 import claude from "./claude.js";
 import codex from "./codex.js";
@@ -167,6 +169,8 @@ export function validateAdapters(adapters = ADAPTERS) {
 
       if (!surface.emit || typeof surface.emit !== "object") {
         problems.push(`${label}: emit descriptor is required (write_mode "none" is how a surface declares it is never written)`);
+      } else {
+        problems.push(...validateEmit(label, surface, surfaces));
       }
     }
 
@@ -213,6 +217,50 @@ export function validateAdapters(adapters = ADAPTERS) {
     }
   }
 
+  return problems;
+}
+
+/**
+ * The emit block is what the import planner executes, so its invariants are security
+ * invariants. The load-bearing one is the last: an EXECUTABLE surface that Continuity can
+ * WRITE must declare how the runtime turns it off. Without a disabled form there is no
+ * quarantine, and "written but inert" quietly becomes "written and live".
+ */
+function validateEmit(label, surface, surfaces) {
+  const problems = [];
+  const emit = surface.emit;
+  if (!WRITE_MODES.includes(emit.write_mode)) {
+    problems.push(`${label}: emit.write_mode "${emit.write_mode}" is not one of ${WRITE_MODES.join(" | ")}`);
+  }
+  const writable = emit.write_mode !== "none" && emit.target !== null && emit.target !== undefined;
+  if (emit.write_mode !== "none" && !nonEmptyString(emit.target)) {
+    problems.push(`${label}: emit.write_mode "${emit.write_mode}" needs a target template`);
+  }
+  if (emit.write_mode === "none" && emit.target) {
+    problems.push(`${label}: emit.write_mode "none" must not name a target`);
+  }
+
+  const form = emit.disabled_form;
+  if (form) {
+    if (!DISABLED_FORM_MODES.includes(form.mode)) {
+      problems.push(`${label}: disabled_form.mode "${form.mode}" is not one of ${DISABLED_FORM_MODES.join(" | ")}`);
+    }
+    if (form.mode !== "no_exec_bit" && !nonEmptyString(form.key_path) && !nonEmptyString(form.array_path)) {
+      problems.push(`${label}: disabled_form needs the key path the runtime reads to decide this item is off`);
+    }
+    if (form.mode === "companion_key" || form.mode === "companion_entry") {
+      if (!surfaces.some((candidate) => candidate.surface_id === form.surface_id)) {
+        problems.push(`${label}: disabled_form.surface_id "${form.surface_id}" is not a surface of this adapter`);
+      }
+    }
+    if (form.mode === "companion_entry" && (!nonEmptyString(form.array_path) || !nonEmptyString(form.match_key))) {
+      problems.push(`${label}: a companion_entry disabled_form needs array_path and match_key`);
+    }
+  } else if (writable && surface.trust_tier === "EXECUTABLE") {
+    problems.push(
+      `${label}: an EXECUTABLE surface with an import target must declare a disabled_form — without one there is no quarantine`,
+    );
+  }
   return problems;
 }
 

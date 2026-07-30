@@ -89,3 +89,21 @@ export const FORMATS = [
 ];
 
 export const SEVERITIES = ["info", "warn", "critical"];
+
+// adapter-architecture §1.3 emit block. `none` is how a surface declares that Continuity
+// reads it but never writes it — an org-owned layer, a re-resolvable cache, a never-export
+// sink. It is a first-class answer, not a missing one.
+export const WRITE_MODES = ["create_file", "merge_key", "append_section", "relocate_dir", "none"];
+
+/**
+ * The closed set of quarantine idioms (THR §3.4). Each is the RUNTIME's own way of saying
+ * "present but inert", which is why quarantine costs nothing to implement and reads as
+ * native to the user:
+ *
+ *   in_entry         a key inside the written entry     (`enabled = false`, `disabled: true`)
+ *   relocate_key     the entry moves to a parked bucket (`hooks` -> `hooks_disabled`)
+ *   companion_key    an enable-state key in another file(`skillOverrides.<name>: "off"`)
+ *   companion_entry  a row in another file's table       (`[[skills.config]] enabled = false`)
+ *   no_exec_bit      the file lands without the exec bit (skill scripts, hook scripts)
+ */
+export const DISABLED_FORM_MODES = ["in_entry", "relocate_key", "companion_key", "companion_entry", "no_exec_bit"];

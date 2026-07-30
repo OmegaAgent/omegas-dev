@@ -83,6 +83,23 @@ export function isUnresolved(value) {
 }
 
 /**
+ * Only values that are ABSOLUTE PATHS may stand in for a token. The token table is seeded
+ * from the process environment, where a variable holding a one-character value is normal
+ * (macOS sets `XPC_SERVICE_NAME=0`); substituting that by value rewrites every array index
+ * in every key path into `${XPC_SERVICE_NAME}`, which the import planner then cannot
+ * address. A token substitution is a path substitution or it is nothing.
+ */
+function pathTokens(env) {
+  return Object.entries(env.tokens ?? {}).filter(
+    ([name, value]) =>
+      typeof value === "string" &&
+      !name.includes(":") &&
+      (value.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value)) &&
+      value.length > 1,
+  );
+}
+
+/**
  * Manifest §1.3 / THR C2 — `origin.path` is tokenized, so a bundle carries no username
  * and no machine layout. Longest value first, otherwise `${HOME}` would shadow
  * `${CLAUDE_HOME}`.
@@ -98,9 +115,7 @@ export function tokenize(absPath, env) {
     if (out === posix) return "${PROJECT}";
     if (out.startsWith(`${posix}/`)) return `\${PROJECT}${out.slice(posix.length)}`;
   }
-  const pairs = Object.entries(env.tokens ?? {})
-    .filter(([name, value]) => typeof value === "string" && value.length > 0 && !name.includes(":"))
-    .sort((a, b) => b[1].length - a[1].length);
+  const pairs = pathTokens(env).sort((a, b) => b[1].length - a[1].length);
   for (const [token, value] of pairs) {
     const posix = toPosix(value);
     if (out === posix) return `\${${token}}`;
@@ -117,9 +132,7 @@ export function tokenize(absPath, env) {
 export function tokenizeWithin(text, env) {
   const candidates = [
     ...(env.projects ?? []).map((project) => ["${PROJECT}", toPosix(project.path)]),
-    ...Object.entries(env.tokens ?? {})
-      .filter(([name, value]) => typeof value === "string" && value.length > 0 && !name.includes(":"))
-      .map(([name, value]) => [`\${${name}}`, toPosix(value)]),
+    ...pathTokens(env).map(([name, value]) => [`\${${name}}`, toPosix(value)]),
   ].sort((a, b) => b[1].length - a[1].length);
   let out = String(text);
   for (const [token, value] of candidates) {
@@ -295,9 +308,45 @@ export function rebuildKeyPath(segments) {
 const RESERVED_WIN = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
 const ENTRY_PREFIXES = ["blobs/", "items/", "derived/"];
 
+/**
+ * One bounded decode pass, then re-check.
+ *
+ * `blobs/%2e%2e%2fetc/passwd` carries no literal `..`, so a check on the raw bytes passes
+ * it. This reader never decodes an entry name — but the bundle format is published, and a
+ * second implementation that does decode would build a traversal out of a name we called
+ * safe. A name that DECODES to a separator, a parent segment or a control byte is refused
+ * on that basis alone, and the refusal names the decoded form.
+ */
+function percentDecoded(raw) {
+  if (!/%[0-9a-fA-F]{2}/.test(raw)) return null;
+  try {
+    const decoded = decodeURIComponent(raw);
+    return decoded === raw ? null : decoded;
+  } catch {
+    return raw;
+  }
+}
+
+function decodesToTraversal(raw) {
+  const decoded = percentDecoded(raw);
+  if (decoded === null) return false;
+  if (decoded === raw) return true;
+  const segments = decoded.split("/");
+  return (
+    decoded.includes("\\") ||
+    decoded.startsWith("/") ||
+    decoded.startsWith("~") ||
+    /^[A-Za-z]:/.test(decoded) ||
+    /[\u0000-\u001F\u007F-\u009F]/.test(decoded) ||
+    segments.some((segment) => segment === ".." || segment === "." || segment === "") ||
+    segments.length !== raw.split("/").length
+  );
+}
+
 export function canonicalEntryName(name, seenFold) {
   const raw = String(name);
   if (raw.normalize("NFC") !== raw) return rejectEntry(raw, "not Unicode NFC");
+  if (decodesToTraversal(raw)) return rejectEntry(raw, "percent-encoding decodes to a path separator or parent segment");
   if (raw.includes("\\")) return rejectEntry(raw, "backslash separator");
   if (raw.startsWith("/") || /^[A-Za-z]:/.test(raw) || raw.startsWith("~")) {
     return rejectEntry(raw, "absolute or home-relative entry name");
@@ -328,4 +377,63 @@ export function canonicalEntryName(name, seenFold) {
 
 function rejectEntry(name, reason) {
   return { ok: false, name, reason };
+}
+
+// ── import-side path fragments ──────────────────────────────────────────────────────
+// An entry NAME is not the only attacker-controlled string that reaches a filesystem
+// target. An item's identity is interpolated into its surface's emit template
+// (`${CLAUDE_HOME}/skills/{identity}/`), so an identity of `../../.ssh` is the same
+// zip-slip with a different spelling (THR T-I1). The same rules apply, minus the fixed
+// prefix set, which is a bundle-entry convention rather than a path property.
+
+export function canonicalRelPath(fragment, { allowSlash = true } = {}) {
+  const raw = String(fragment ?? "");
+  if (raw.length === 0) return rejectEntry(raw, "empty path fragment");
+  if (raw.normalize("NFC") !== raw) return rejectEntry(raw, "not Unicode NFC");
+  if (decodesToTraversal(raw)) return rejectEntry(raw, "percent-encoding decodes to a path separator or parent segment");
+  if (raw.includes("\\")) return rejectEntry(raw, "backslash separator");
+  if (raw.startsWith("/") || /^[A-Za-z]:/.test(raw) || raw.startsWith("~")) {
+    return rejectEntry(raw, "absolute or home-relative path fragment");
+  }
+  if (/[\u0000-\u001F\u007F-\u009F]/.test(raw)) return rejectEntry(raw, "control byte in path fragment");
+  if (!allowSlash && raw.includes("/")) return rejectEntry(raw, "path separator in a single-segment fragment");
+  const segments = raw.split("/");
+  if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
+    return rejectEntry(raw, "empty, dot or parent segment");
+  }
+  if (segments.length > 16) return rejectEntry(raw, "path depth over 16");
+  if (segments.some((segment) => Buffer.byteLength(segment) > 255)) return rejectEntry(raw, "segment over 255 bytes");
+  if (Buffer.byteLength(raw) > 1024) return rejectEntry(raw, "path over 1024 bytes");
+  if (segments.some((segment) => RESERVED_WIN.test(segment) || /[. ]$/.test(segment))) {
+    return rejectEntry(raw, "reserved Windows basename or trailing dot/space");
+  }
+  return { ok: true, name: raw };
+}
+
+// `__proto__` in a key path is the JSON tree's version of the same escape: a write at
+// `mcpServers.__proto__.command` mutates every object downstream instead of one entry.
+const POISONED_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+export function canonicalKeyPath(keyPath) {
+  const raw = String(keyPath ?? "");
+  if (raw.length === 0) return { ok: false, name: raw, reason: "empty key path" };
+  if (raw.normalize("NFC") !== raw) return { ok: false, name: raw, reason: "not Unicode NFC" };
+  if (/[\u0000-\u001F\u007F-\u009F]/.test(raw)) return { ok: false, name: raw, reason: "control byte in key path" };
+  if (raw.includes("${")) return { ok: false, name: raw, reason: "unexpanded token in key path" };
+  if (Buffer.byteLength(raw) > 1024) return { ok: false, name: raw, reason: "key path over 1024 bytes" };
+  const segments = splitKeyPath(raw);
+  if (segments.length === 0) return { ok: false, name: raw, reason: "empty key path" };
+  if (segments.length > 24) return { ok: false, name: raw, reason: "key depth over 24" };
+  for (const segment of segments) {
+    if (POISONED_KEYS.has(segment)) return { ok: false, name: raw, reason: `prototype-poisoning key "${segment}"` };
+    if (segment === "*" || segment === "**" || segment === "[*]") {
+      return { ok: false, name: raw, reason: "wildcard in a concrete key path" };
+    }
+  }
+  return { ok: true, name: raw, segments };
+}
+
+/** The Continuity state directory, always resolved against the TARGET home, never `os.homedir()`. */
+export function continuityStateDir(homeDir) {
+  return path.join(homeDir, ".omegas", "continuity");
 }

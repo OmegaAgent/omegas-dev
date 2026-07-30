@@ -14,6 +14,7 @@ import { randomBytes } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { SCHEMA_VERSION, buildBundle } from "../core/bundle/write.js";
+import { continuityStateDir } from "../core/fsx/paths.js";
 import { postExportScan } from "../core/redact/index.js";
 import { renderRedactionReport, redactionSummary } from "../core/redact/report.js";
 import { writeSecretMap } from "../core/redact/secretmap.js";
@@ -66,7 +67,7 @@ export async function runExport({ options, result, env, adapters, code, io, refu
 }
 
 export function stateDir(homeDir) {
-  return path.join(homeDir, ".omegas", "continuity");
+  return continuityStateDir(homeDir);
 }
 
 export function bundleId(now = new Date(), random = randomBytes(6)) {

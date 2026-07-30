@@ -1,0 +1,9 @@
+{
+  "installMethod": "2.1.220",
+  "userID": "target-user-id",
+  "mcpServers": {
+    "already-here": {
+      "url": "https://mcp.example.test/existing"
+    }
+  }
+}

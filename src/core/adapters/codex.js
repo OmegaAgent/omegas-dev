@@ -435,7 +435,7 @@ export default {
       emit: {
         target: "${CODEX_HOME}/config.toml",
         write_mode: "merge_key",
-        disabled_form: { key_path: "enabled", value: false },
+        disabled_form: { mode: "in_entry", key_path: "enabled", value: false },
       },
       notes: "Codex has SAFE name-reference forms Claude lacks: env_vars, bearer_token_env_var, env_http_headers. Claude to Codex emit UPGRADES inline env to env_vars — a conversion that improves security. SSE is undocumented in 0.144.5; emit stdio or streamable HTTP only. Quarantine is free here: `enabled = false` is the runtime's own idiom (COD §4.5). Trust is EXECUTABLE when `command` is present, DECLARATIVE for url-only entries.",
     },
@@ -505,7 +505,7 @@ export default {
       emit: {
         target: "${CODEX_HOME}/skills/{identity}/",
         write_mode: "relocate_dir",
-        disabled_form: { key_path: "skills.config[].enabled", value: false },
+        disabled_form: { mode: "companion_entry", surface_id: "codex.config.user", array_path: "skills.config", match_key: "path", set: { enabled: false } },
       },
       caps: { max_bytes: 1048576 },
       notes: "Trust escalates to EXECUTABLE when a bundled script carries the exec bit (kinds.js maxTier; escalation only). COD §6.1/§6.2 — whether this directory is officially supported or legacy, and its precedence against ~/.agents/skills on a duplicate `name`, are GENUINE UNKNOWNS; `coexist` is the safe default because guessing `override` would silently hide a skill in the effective view. Duplicate `name` across scopes is documented as not merged: both appear in selectors (COD §4.7). Optional agents/openai.yaml carries UI metadata Claude ignores harmlessly.",
@@ -542,7 +542,7 @@ export default {
       emit: {
         target: "${HOME}/.agents/skills/{identity}/",
         write_mode: "relocate_dir",
-        disabled_form: { key_path: "skills.config[].enabled", value: false },
+        disabled_form: { mode: "companion_entry", surface_id: "codex.config.user", array_path: "skills.config", match_key: "path", set: { enabled: false } },
       },
       caps: { max_bytes: 1048576 },
       notes: "This is the DOCUMENTED user-scope location and therefore the default cross-runtime emit target for a Claude skill. Symlinked skill folders are supported and followed by the runtime; Continuity still applies the three-outcome symlink policy (THR §3.1), which is what turns '0 Codex skills' into 61 visible unresolved_link nodes on the surveyed machine.",
@@ -588,7 +588,7 @@ export default {
       emit: {
         target: "${PROJECT}/.agents/skills/{identity}/",
         write_mode: "relocate_dir",
-        disabled_form: { key_path: "skills.config[].enabled", value: false },
+        disabled_form: { mode: "companion_entry", surface_id: "codex.config.user", array_path: "skills.config", match_key: "path", set: { enabled: false } },
       },
       caps: { max_bytes: 1048576 },
       notes: "The one skill scope Claude cannot express at repo level without .claude/skills; this is the target that makes a project-scoped Claude COMMAND portable (COD §4.6). ancestor_walk is cwd_to_root because the manual walks up from $CWD to the repo root, the opposite direction from the instruction chain.",
@@ -696,7 +696,7 @@ export default {
       emit: {
         target: "${CODEX_HOME}/hooks.json",
         write_mode: "merge_key",
-        disabled_form: { key_path: "enabled", value: false },
+        disabled_form: { mode: "in_entry", key_path: "enabled", value: false },
         post_import_note: "imported hooks land UNTRUSTED; the user must run /hooks in the TUI. Say so rather than let the import look silently broken (COD §4.8)",
       },
       notes: "Higher-precedence layers do NOT replace lower-precedence hooks — all matching hooks from all layers run, concurrently (MANUAL:20275). timeout is in SECONDS, default 600, SessionEnd defaults to 1s with a 3s max. Only type: command runs today; `prompt` and `agent` are parsed but skipped, and `async` is parsed but unsupported. Trust is recorded against the hook's HASH, so any edit re-arms review — which is why [hooks.state] is never exported.",
@@ -738,7 +738,7 @@ export default {
       emit: {
         target: "${CODEX_HOME}/config.toml",
         write_mode: "merge_key",
-        disabled_form: { key_path: "enabled", value: false },
+        disabled_form: { mode: "in_entry", key_path: "enabled", value: false },
         post_import_note: "imported hooks land UNTRUSTED; the user must run /hooks (COD §4.8)",
       },
       notes: "The TOML shape is why a line-based scanner is not enough: arrays-of-tables and inline tables both appear here (adapter-architecture §1.4). Hook definitions use CamelCase event names while [hooks.state] keys use snake_case for the same events — two naming conventions in one file (COD §4.8).",
@@ -1190,7 +1190,7 @@ export default {
       emit: {
         target: "${CODEX_HOME}/config.toml",
         write_mode: "merge_key",
-        disabled_form: { key_path: "notify", value: null },
+        disabled_form: { mode: "in_entry", key_path: "$", value: null },
         post_import_note: "spawns a local program on every notification; quarantined on import like any other executable surface",
       },
       notes: "RESERVED for v1.1: declared, not populated in v1. USER AND SYSTEM SCOPE ONLY — `notify` is on the project-config banned-key list (COD §4.4), so a project-scope write is a silent no-op. The whole value is an argv array, hence argv_positions: [\"$\"].",

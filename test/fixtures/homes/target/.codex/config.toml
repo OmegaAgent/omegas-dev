@@ -1,0 +1,6 @@
+# Codex configuration (target fixture)
+model = "gpt-5-codex"
+
+[mcp_servers.existing]
+command = "node"
+args = ["--version"]
