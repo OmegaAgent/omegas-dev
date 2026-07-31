@@ -360,8 +360,11 @@ test("red team: the HTML report of a hostile bundle still references nothing", a
 
   // `javascript:`, `onerror=` and friends survive as text for the same reason and are
   // inert for the same reason. `//` is different and worth asserting: the renderer escapes
-  // `/` as well, which is what keeps a configured URL from ever spelling a scheme.
-  assert.equal(html.includes("//"), false, "a hostile item name produced a protocol-relative URL");
+  // `/` as well, which is what keeps a configured URL from ever spelling a scheme. The one
+  // legitimate `//` on the page is inside the embedded font's base64 (base64 uses `/`), which
+  // is renderer-owned inline data, not attacker content — strip that payload before the check.
+  const htmlSansInlineData = html.replace(/url\(\s*data:[^)]*\)/g, "url(data:_)");
+  assert.equal(htmlSansInlineData.includes("//"), false, "a hostile item name produced a protocol-relative URL");
   for (const payload of payloads.filter((candidate) => candidate.includes("<"))) {
     assert.equal(html.includes(payload), false, `the payload survived unescaped: ${payload}`);
   }

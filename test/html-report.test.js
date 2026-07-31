@@ -37,6 +37,13 @@ async function scanFixture(t) {
  * appear on the page as characters without `//` ever existing in the file.
  */
 function networkReferences(html) {
+  // Inline `data:` URIs are not network references — they carry their bytes with them and
+  // fetch nothing. The one on this page is the embedded font. We strip every data: payload
+  // FIRST (base64 legitimately contains `/`, which must not be read as a URL), then scan the
+  // remainder for anything that would reach off the machine, and finally assert positively
+  // that the only `url()`/`@font-face` left is the inline font. That is a stronger statement
+  // than a blanket ban on `url(`: it forbids every remote form AND pins what inline is allowed.
+  const stripped = html.replace(/url\(\s*data:[^)]*\)/g, "url(data:_)");
   const hits = [];
   const forbidden = [
     ["//", "a protocol-relative or scheme URL"],
@@ -45,7 +52,6 @@ function networkReferences(html) {
     ["href=", "a link target"],
     ["action=", "a form target"],
     ["@import", "a CSS import"],
-    ["url(", "a CSS url() reference"],
     ["<script", "a script element"],
     ["<link", "a link element"],
     ["<iframe", "an embedded frame"],
@@ -63,10 +69,17 @@ function networkReferences(html) {
     ["WebSocket", "a socket"],
     ["EventSource", "a server-sent-events stream"],
     ["sendBeacon", "a beacon"],
-    ["@font-face", "a font declaration"],
   ];
   for (const [needle, what] of forbidden) {
-    if (html.includes(needle)) hits.push(`${what} (${needle})`);
+    if (stripped.includes(needle)) hits.push(`${what} (${needle})`);
+  }
+  // Every url() that survives the strip is a remote one — a leak.
+  for (const match of stripped.matchAll(/url\(([^)]*)\)/g)) {
+    if (match[1].trim() !== "data:_") hits.push(`a non-inline url() (${match[1].trim()})`);
+  }
+  // @font-face may exist, but only sourced from an inline data: URI.
+  for (const block of html.matchAll(/@font-face\s*\{([^}]*)\}/g)) {
+    if (!/src:\s*url\(\s*data:/.test(block[1])) hits.push("a @font-face with a non-inline src");
   }
   return hits;
 }
