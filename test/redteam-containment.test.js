@@ -369,5 +369,5 @@ test("red team: the HTML report of a hostile bundle still references nothing", a
     assert.equal(html.includes(payload), false, `the payload survived unescaped: ${payload}`);
   }
   assert.ok(html.includes("&lt;style&gt;@import"), "the fixture no longer reaches the page at all");
-  assert.match(html, /Configuration report/);
+  assert.match(html, /Omegas Continuity report/);
 });

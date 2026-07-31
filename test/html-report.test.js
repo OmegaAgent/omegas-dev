@@ -137,7 +137,7 @@ test("the only way to produce a page is a bundle FILE, verified on the way in", 
   await writeFile(bundlePath, built.serialized);
 
   const html = await htmlFromBundleFile(bundlePath);
-  assert.match(html, /Configuration report/);
+  assert.match(html, /Omegas Continuity report/);
 
   // Tampering is caught by the same reader an importer uses, so a doctored bundle cannot
   // be laundered into a nice-looking report.
@@ -154,7 +154,6 @@ test("the page renders every section a reader needs", async (t) => {
   const { built } = await scanFixture(t);
   const html = renderBundleHtml(built.manifest);
   for (const heading of [
-    "Configuration report",
     "Local, private, redacted. Safe to screenshot.",
     "1 &nbsp;Environment",
     "2 &nbsp;Compatibility",

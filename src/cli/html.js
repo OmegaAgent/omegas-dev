@@ -151,7 +151,6 @@ h2 { font-size: 1.35rem; letter-spacing: -0.015em; font-weight: 650; margin: 3.2
 h3 { font-size: .95rem; font-weight: 600; margin: 1.5rem 0 .5rem; color: var(--muted); }
 p { margin: .55rem 0; }
 a { color: inherit; }
-.kicker { font-size: .82rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--green); margin: 0 0 .75rem; }
 .lede { font-size: 1.15rem; line-height: 1.5; color: var(--muted); max-width: 46rem; margin: 1rem 0 0; }
 .lede strong { color: var(--ink); font-weight: 600; }
 .muted { color: var(--muted); }
@@ -236,9 +235,9 @@ const OMEGA =
 
 function masthead() {
   // Wordmark: the custom Ω SVG stands in for the "o" (never the font's own glyph), then
-  // "megas", then the product context.
-  return `<div class="mark"><span class="word"><span class="omega">${OMEGA}</span>megas</span><span class="sep">/</span><span class="ctx">Continuity</span></div>
-<p class="kicker">Configuration report</p>`;
+  // "megas", then the product context. No kicker label above the verdict — the wordmark
+  // already names the document and the verdict headline carries the page.
+  return `<div class="mark"><span class="word"><span class="omega">${OMEGA}</span>megas</span><span class="sep">/</span><span class="ctx">Continuity</span></div>`;
 }
 
 // ── verdict + buckets ──────────────────────────────────────────────────────────
