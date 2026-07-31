@@ -34,7 +34,7 @@
   },
   "scripts": {
     "test": "node --test",
-    "check": "node --check bin/omegas-dev.js && node --check src/*.js && node --check src/cli/*.js && node --check src/hosted/*.js && node --check src/core/adapters/*.js && node --check src/core/bundle/*.js && node --check src/core/compat/*.js && node --check src/core/engine/*.js && node --check src/core/formats/*.js && node --check src/core/fsx/*.js && node --check src/core/model/*.js && node --check src/core/policy/*.js && node --check src/core/redact/*.js",
+    "check": "find bin src -name '*.js' -print0 | xargs -0 -n1 node --check",
     "gate:purity": "node --test test/purity.test.js test/adapters.test.js",
     "gate:secrets": "node --test test/redact.test.js test/redact-recall.test.js test/redaction-corpus.test.js",
     "gate:network": "node --test test/purity.test.js test/export-cli.test.js test/html-report.test.js",

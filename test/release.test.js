@@ -62,11 +62,14 @@ test("the release checklist puts the credential rotation first, and prints no va
   }
 });
 
-test("the version, the changelog heading and the export generator all agree", async () => {
+test("the version, the lockfile, the changelog heading and the export generator all agree", async () => {
   const manifest = JSON.parse(await readFile(path.join(repoRoot, "package.json"), "utf8"));
+  const lockfile = JSON.parse(await readFile(path.join(repoRoot, "package-lock.json"), "utf8"));
   const changelog = await readFile(path.join(repoRoot, "CHANGELOG.md"), "utf8");
   const exporter = await readFile(path.join(repoRoot, "src", "cli", "export.js"), "utf8");
 
+  assert.equal(lockfile.version, manifest.version, "the lockfile version drifted from package.json");
+  assert.equal(lockfile.packages[""].version, manifest.version, "the lockfile root package version drifted");
   assert.match(changelog, new RegExp(`^## ${manifest.version.replace(/\./g, "\\.")}$`, "m"));
   assert.equal(changelog.includes("## Unreleased"), false, "an unreleased section means the version was not cut");
   assert.match(exporter, new RegExp(`GENERATOR_VERSION = "${manifest.version.replace(/\./g, "\\.")}"`));
