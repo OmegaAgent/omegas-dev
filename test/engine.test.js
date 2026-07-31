@@ -3,6 +3,7 @@
 // temp directory, and every credential-shaped value in it is an obvious placeholder.
 
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { ADAPTERS } from "../src/core/adapters/registry.js";
@@ -385,6 +386,49 @@ test("a hook carries its script and its sentinel gate as edges", async () => {
     const dangling = byId(fixture.result, "claude:user:hook:Stop.0.1");
     const missing = dangling.related.find((edge) => edge.rel === "references_path");
     assert.equal(missing.resolved, false);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+// The committed fixture writes its sentinel as an absolute path, so it cannot exercise the form
+// most hooks actually use. This builds a home whose gate is written `~/…` and asserts the edge
+// still derives: probing only absolute leaves silently lost the lint for the idiomatic spelling.
+test("a sentinel written ~/-relative is probed, not silently ignored", async () => {
+  const fixture = await materializeHome();
+  try {
+    const hooks = path.join(fixture.home, ".claude", "hooks");
+    await fs.mkdir(hooks, { recursive: true });
+    await fs.writeFile(path.join(hooks, "tilde-gated.sh"), "#!/bin/sh\n[ -f ~/.claude/hooks/.tildequiet ] && exit 0\necho hi\n");
+    await fs.chmod(path.join(hooks, "tilde-gated.sh"), 0o755);
+    await fs.writeFile(path.join(hooks, ".tildequiet"), "");
+    const settingsPath = path.join(fixture.home, ".claude", "settings.json");
+    const settings = JSON.parse(await fs.readFile(settingsPath, "utf8"));
+    settings.hooks = settings.hooks ?? {};
+    settings.hooks.PreToolUse = [
+      { matcher: "*", hooks: [{ type: "command", command: path.join(hooks, "tilde-gated.sh") }] },
+    ];
+    await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2));
+
+    const env = await buildEnvironment({
+      homeDir: fixture.home,
+      roots: [path.join(fixture.home, "projects")],
+      os: "darwin",
+      envVars: {},
+      adapters: ADAPTERS,
+      caps: { file_bytes: 8192 },
+    });
+    const result = await runScan({ adapters: ADAPTERS, env });
+
+    const script = result.items.find((item) => item.item_id === "claude:user:hook_script:tilde-gated.sh");
+    assert.ok(script, "the tilde-gated hook script should be discovered");
+    const gate = script.related.find((edge) => edge.rel === "gated_by");
+    assert.ok(gate, "a ~/-relative sentinel must still derive a gated_by edge");
+    assert.match(gate.external, /^~\//, "the sentinel path stays home-relative");
+    assert.ok(
+      result.findings.some((finding) => finding.rule === "hook.gated_by_sentinel"),
+      "hook.gated_by_sentinel must fire for the idiomatic ~/ spelling",
+    );
   } finally {
     await fixture.cleanup();
   }

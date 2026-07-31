@@ -17,8 +17,10 @@ import {
   absolutePathCandidates,
   deriveEdges,
   derivePortability,
+  dotfileCandidates,
   finalizeContentIds,
   normalize,
+  resolveCandidatePath,
 } from "./normalize.js";
 import { scan, scanDerived } from "./scan.js";
 
@@ -39,7 +41,7 @@ export async function runScan({ adapters, env, salt = undefined, payloadPolicy =
   });
 
   const items = second.items;
-  const probes = await probePaths(items);
+  const probes = await probePaths(items, env);
   deriveEdges({ items, env, probes });
   derivePortability(items);
 
@@ -91,12 +93,16 @@ export async function runScan({ adapters, env, salt = undefined, payloadPolicy =
  * One bounded existence sweep so the lints can tell a live path from a dead one. This
  * is `lstat` only — nothing is opened, nothing is read — and the results stay local.
  */
-async function probePaths(items) {
+async function probePaths(items, env) {
   const probes = new Map();
-  for (const candidate of absolutePathCandidates(items)) {
+  // Keyed by the candidate AS WRITTEN, because that is what deriveEdges looks up; the lstat
+  // runs against what the candidate resolves to under the scanned home.
+  for (const candidate of [...absolutePathCandidates(items), ...dotfileCandidates(items)]) {
     if (probes.size >= MAX_PROBES) break;
     if (probes.has(candidate)) continue;
-    probes.set(candidate, (await lstatOrNull(candidate)) !== null);
+    const target = resolveCandidatePath(candidate, env?.homeDir);
+    if (target === null) continue;
+    probes.set(candidate, (await lstatOrNull(target)) !== null);
   }
   return probes;
 }

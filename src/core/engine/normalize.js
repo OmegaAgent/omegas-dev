@@ -447,6 +447,31 @@ function* dotfileReferences(text) {
  */
 export const PROBEABLE_ROOTS = "Users|home|opt|usr|etc|var|private|tmp";
 
+/**
+ * Dotfile references exactly as written, because `deriveEdges` looks the probe map up by the
+ * written form. Probing only absolute leaves left the idiomatic `~/…` sentinel unprobed, so
+ * `hook.gated_by_sentinel` could not fire on the form most hooks actually use.
+ */
+export function* dotfileCandidates(items) {
+  for (const item of items) {
+    for (const candidate of dotfileReferences(item._raw_text ?? "")) yield candidate;
+  }
+}
+
+/**
+ * The absolute path a written candidate denotes, or null when it denotes nothing this scan can
+ * resolve. `~` and `${HOME}` are the scanned home — never the scanning process's own — so a scan
+ * of someone else's home never probes ours.
+ */
+export function resolveCandidatePath(candidate, homeDir) {
+  if (candidate.startsWith("/")) return candidate;
+  if (!homeDir) return null;
+  if (candidate.startsWith("~/")) return `${homeDir}/${candidate.slice(2)}`;
+  const named = candidate.match(/^\$\{?(\w+)\}?\/(.+)$/);
+  if (named && named[1] === "HOME") return `${homeDir}/${named[2]}`;
+  return null;
+}
+
 /** Absolute-looking path leaves, so the pipeline can probe them once for the lints. */
 export function* absolutePathCandidates(items) {
   for (const item of items) {
