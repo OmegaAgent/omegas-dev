@@ -136,3 +136,54 @@ test("treats home config as global and ignores nested skill repository mirrors",
     await rm(temp, { recursive: true, force: true });
   }
 });
+
+test("reports exact MCP duplicates separately from conflicts without exposing secrets", async () => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), "omegas-dev-"));
+  try {
+    const home = path.join(temp, "home");
+    const project = path.join(home, "Code", "omega");
+    await mkdir(path.join(project, ".codex"), { recursive: true });
+    await writeFile(path.join(project, "AGENTS.md"), "Project context\n");
+    await writeFile(
+      path.join(home, ".claude.json"),
+      JSON.stringify({
+        mcpServers: {
+          docs: { url: "https://docs.example.test/mcp" },
+          deploy: { command: "npx", args: ["deploy-server"], env: { DEPLOY_TOKEN: "global-secret" } },
+        },
+      }),
+    );
+    await writeFile(
+      path.join(project, ".mcp.json"),
+      JSON.stringify({
+        mcpServers: {
+          docs: { url: "https://docs.example.test/mcp" },
+          runner: { command: "npx", args: ["runner", "--mode", "safe"] },
+        },
+      }),
+    );
+    await writeFile(
+      path.join(project, ".codex", "config.toml"),
+      `[mcp_servers.runner]\ncommand = "npx"\nargs = ["runner", "--mode", "fast"]\n\n[mcp_servers.deploy]\ncommand = "npx"\nargs = ["deploy-server"]\n\n[mcp_servers.deploy.env]\nDEPLOY_TOKEN = "project-secret"\n`,
+    );
+
+    const { manifest } = await discoverTransfer({ roots: [project], home, maxDepth: 1 });
+
+    assert.deepEqual(manifest.mcp_conflicts.exact_duplicates, [{
+      identity: "docs",
+      definitions: [
+        { source: "claude", scope: "global", project: undefined, source_file: ".claude.json" },
+        { source: "claude", scope: "project", project: "omega", source_file: "omega/.mcp.json" },
+      ],
+    }]);
+    assert.deepEqual(
+      manifest.mcp_conflicts.conflicts.map((item) => item.identity).sort(),
+      ["deploy", "runner"],
+    );
+    assert.ok(manifest.mcp_conflicts.conflicts.every((item) => item.definitions.every((definition) => definition.scope)));
+    assert.ok(!JSON.stringify(manifest).includes("global-secret"));
+    assert.ok(!JSON.stringify(manifest).includes("project-secret"));
+  } finally {
+    await rm(temp, { recursive: true, force: true });
+  }
+});
