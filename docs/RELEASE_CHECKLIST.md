@@ -53,7 +53,7 @@ release commit; do not read them from a stale CI run.
 ```sh
 npm test                # the whole suite
 npm run check           # every source file parses
-npm run gates           # the eight gates below, in order
+npm run gates           # the ten gates below, in order
 ```
 
 | Gate | What it proves | Status |
@@ -65,7 +65,9 @@ npm run gates           # the eight gates below, in order
 | `gate:noop` | nothing is applied without consent; a re-import is byte-identical | |
 | `gate:compat` | the derived matrix still matches the researched verdicts, cell by cell | |
 | `gate:cutover` | the legacy-payload projection is still at parity with the legacy scanner | |
-| `gate:release` | package contents, version agreement across three files, docs cross-links, and that this checklist stays out of the tarball | |
+| `gate:redteam` | a bundle cannot relabel a key onto a weaker surface, smuggle a never-export sink through a hard link or a skill asset, escape the home, or grant its own consent | |
+| `gate:property` | generated inputs from a seeded in-repo PRNG hold the invariants: patching is byte-exact, canonicalized names never traverse, redaction is idempotent, the digest moves only with content | |
+| `gate:release` | package contents, version agreement across four files, docs cross-links, and that this checklist stays out of the tarball | |
 
 Fill in the status column in the release PR. "CI was green" is not the same claim as "I ran
 the gate on this commit".
@@ -93,7 +95,7 @@ trusting the job name.
 
 ## 3. Version and documentation
 
-- [ ] `package.json` version bumped, and it matches the CHANGELOG heading.
+- [ ] `package.json` version bumped, and `package-lock.json` and the CHANGELOG heading match it.
 - [ ] `CHANGELOG.md` has an entry for this version that itemizes what changed **and**
       carries the *Known limits* section forward. A release note that lists only
       improvements is advertising.
