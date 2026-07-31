@@ -27,6 +27,7 @@ export async function materializeHome(name = "source") {
     verbatimSymlinks: true,
   });
   const real = (await realpath(home).catch(() => home)) ?? home;
+  await renameDotGitDirectories(temp);
   await renameMungedDirectories(path.join(home, ".claude", "projects"), real);
   await substitute(home, real);
   return {
@@ -44,6 +45,24 @@ export async function materializeHome(name = "source") {
  * to the encoding of the materialized project path — forward, exactly as the engine
  * re-encodes it, never by inverting the name.
  */
+/**
+ * Git refuses to track any path inside a `.git` directory, so a fixture that needs a repo
+ * marker commits it as `dotgit/` and it is renamed on the way out. Same reason as
+ * `__MUNGED_APP__`: the name the test needs is a name git will not carry. Renaming here
+ * rather than in the engine keeps `.git` the only spelling any source file knows about.
+ */
+async function renameDotGitDirectories(directory) {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+    const full = path.join(directory, entry.name);
+    if (entry.name === "dotgit") {
+      await rename(full, path.join(directory, ".git"));
+      continue;
+    }
+    await renameDotGitDirectories(full);
+  }
+}
+
 async function renameMungedDirectories(projectsDir, home) {
   const encoded = path.join(home, "projects", "app").split(path.sep).join("-");
   const source = path.join(projectsDir, "__MUNGED_APP__");

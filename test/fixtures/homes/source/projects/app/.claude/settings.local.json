@@ -1,0 +1,8 @@
+{
+  "model": "opus-5",
+  "permissions": {
+    "allow": [
+      "Bash(git push:*)"
+    ]
+  }
+}
