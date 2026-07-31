@@ -1,13 +1,13 @@
-# omegas-dev
+# Continuity
 
 **Your Claude Code and Codex setup, explained — and moved, without moving a secret.**
 
-`omegas-dev` reads the configuration of the AI coding agents on your machine and tells you
+Continuity (`@omegas/continuity`) reads the configuration of the AI coding agents on your machine and tells you
 what is actually configured, where each piece came from, why a given value is the one in
 effect, and what would survive a move to another machine or another runtime.
 
 ```sh
-npx omegas-dev report --root ~/Code
+npx @omegas/continuity report --root ~/Code
 ```
 
 It is open source, local-first and MIT. There is no account, no telemetry, and no network
@@ -34,9 +34,9 @@ actually work on a new laptop? What in here is a credential, and what merely loo
 ### Explain a setup
 
 ```sh
-npx omegas-dev scan   --root ~/Code     # what is configured, in one summary
-npx omegas-dev report --root ~/Code     # the same scan, with the reasoning shown
-npx omegas-dev scan   --json            # the machine-readable envelope
+npx @omegas/continuity scan   --root ~/Code     # what is configured, in one summary
+npx @omegas/continuity report --root ~/Code     # the same scan, with the reasoning shown
+npx @omegas/continuity scan   --json            # the machine-readable envelope
 ```
 
 `report` answers the question no other tool answers: **why is this the effective value?** It
@@ -52,8 +52,8 @@ rule that excluded it. Deliberate absence is data; silence is a bug.
 ### Know what would survive a move
 
 ```sh
-npx omegas-dev compat --root ~/Code
-npx omegas-dev compat --from claude --to codex
+npx @omegas/continuity compat --root ~/Code
+npx @omegas/continuity compat --from claude --to codex
 ```
 
 `compat` prints a matrix of `NATIVE` (moves as-is), `CONVERT` (moves, with the losses
@@ -78,7 +78,7 @@ research behind it. That has consequences worth having:
 ### Share it, without sharing a secret
 
 ```sh
-npx omegas-dev export --root ~/Code
+npx @omegas/continuity export --root ~/Code
 ```
 
 One `.ocb.jsonl` bundle you can paste into a gist or commit to a repo. Credential values
@@ -96,7 +96,7 @@ per-tier percentage on every build.
 ### Read it as a page
 
 ```sh
-npx omegas-dev report --html ~/setup.html --bundle ~/setup.ocb.jsonl
+npx @omegas/continuity report --html ~/setup.html --bundle ~/setup.ocb.jsonl
 ```
 
 One self-contained HTML file: environment, items with provenance and portability, every
@@ -114,9 +114,9 @@ leave world-readable.
 ### Land it on another machine
 
 ```sh
-npx omegas-dev diff   --bundle setup.ocb.jsonl    # exactly what it would write. writes nothing
-npx omegas-dev import --bundle setup.ocb.jsonl    # the same plan, applied item by item
-npx omegas-dev enable claude:user:hook:Stop.0.0   # turn on one quarantined item
+npx @omegas/continuity diff   --bundle setup.ocb.jsonl    # exactly what it would write. writes nothing
+npx @omegas/continuity import --bundle setup.ocb.jsonl    # the same plan, applied item by item
+npx @omegas/continuity enable claude:user:hook:Stop.0.0   # turn on one quarantined item
 ```
 
 `diff` creates no staging directory, no ledger line and no temporary file; a test
@@ -153,7 +153,7 @@ The honest list. Every item here is a real limit, not a roadmap tease.
 - **Transcripts, chat history and session state are out of scope by design.** They are the
   densest store of secrets on a developer machine and no rule reads them. This is not a
   feature waiting to be built.
-- **Some kinds are declared but not yet read.** `omegas-dev compat` prints its own coverage
+- **Some kinds are declared but not yet read.** `continuity compat` prints its own coverage
   gaps — kinds a runtime supports that this tool does not scan yet — so a missing surface
   never reads as a missing capability.
 - **Shapeless high-entropy secrets are caught only by position.** An AWS secret access key
@@ -186,8 +186,8 @@ Run with no subcommand and you get the optional authenticated Ωmegas transfer f
 is the only code path in this package that contacts a server:
 
 ```sh
-npx omegas-dev --dry-run     # scan and write a local preview; contacts nothing
-npx omegas-dev               # the hosted review flow
+npx @omegas/continuity --dry-run     # scan and write a local preview; contacts nothing
+npx @omegas/continuity               # the hosted review flow
 ```
 
 The two are deliberately hard to confuse: every read-only command requires an explicit
@@ -200,7 +200,7 @@ is sensitive. It lands in `~/.omegas/state/previews` at mode `0600` inside owner
 directories, and the run ends by offering to delete it; the default answer keeps the file.
 
 ```text
-Usage: npx omegas-dev [options]
+Usage: npx @omegas/continuity [options]
 
   --root <dir>    Root to scan (repeatable; defaults to the current directory)
   --output <file> Sensitive local preview path (default: ~/.omegas/state/previews)
@@ -221,12 +221,13 @@ HTTPS or loopback origins.
 | [docs/BUNDLE_FORMAT.md](docs/BUNDLE_FORMAT.md) | The published format contract, for anyone writing a reader |
 | [docs/IMPORT_MODEL.md](docs/IMPORT_MODEL.md) | Trust tiers, consent, quarantine, rollback — and what it does not protect you from |
 | [docs/CUTOVER.md](docs/CUTOVER.md) | Moving the hosted import onto this core, and the parity already proven |
+| [docs/MIGRATION.md](docs/MIGRATION.md) | Coming from the old `omegas-dev` package name — what changed, and what did not |
 | [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) | What gates a release |
 
 ## CLI reference
 
 ```text
-omegas-dev <command> [options]
+continuity <command> [options]
 
   scan     Read every declared configuration surface and print what was found
   report   The same scan, rendered as a multi-section report

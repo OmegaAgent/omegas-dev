@@ -62,6 +62,25 @@ test("the release checklist puts the credential rotation first, and prints no va
   }
 });
 
+// The name is part of the trust story too: a scoped package that forgets `publishConfig`
+// cannot publish at all, and a bin key that drifts from the product name sends people to a
+// command that does not exist.
+test("the package identity is the shipped one: scoped name, `continuity` binary, public access", async () => {
+  const manifest = JSON.parse(await readFile(path.join(repoRoot, "package.json"), "utf8"));
+  const lockfile = JSON.parse(await readFile(path.join(repoRoot, "package-lock.json"), "utf8"));
+
+  assert.equal(manifest.name, "@omegas/continuity");
+  assert.equal(lockfile.name, manifest.name, "the lockfile name drifted from package.json");
+  assert.equal(lockfile.packages[""].name, manifest.name, "the lockfile root package name drifted");
+  assert.equal(manifest.publishConfig?.access, "public", "a scoped package is private without this");
+
+  assert.deepEqual(Object.keys(manifest.bin), ["continuity"], "exactly one binary, named for the product");
+  assert.deepEqual(manifest.bin, lockfile.packages[""].bin, "the lockfile bin map drifted");
+
+  const files = await packedFiles();
+  assert.ok(files.includes(manifest.bin.continuity), "the binary's entry point is not in the tarball");
+});
+
 test("the version, the lockfile, the changelog heading and the export generator all agree", async () => {
   const manifest = JSON.parse(await readFile(path.join(repoRoot, "package.json"), "utf8"));
   const lockfile = JSON.parse(await readFile(path.join(repoRoot, "package-lock.json"), "utf8"));
@@ -122,6 +141,7 @@ test("the docs that ship cross-link to each other and none of the links dangle",
     "BUNDLE_FORMAT.md",
     "CUTOVER.md",
     "IMPORT_MODEL.md",
+    "MIGRATION.md",
     "RELEASE_CHECKLIST.md",
     "VERIFICATION.md",
   ]);

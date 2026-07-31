@@ -14,7 +14,7 @@ if (isSubcommand(argv)) {
     })
     .catch((error) => {
       const message = error instanceof Error ? error.message : String(error);
-      process.stderr.write(`\nomegas-dev ${argv[0]} stopped: ${message}\n`);
+      process.stderr.write(`\ncontinuity ${argv[0]} stopped: ${message}\n`);
       process.exitCode = 1;
     });
 } else {

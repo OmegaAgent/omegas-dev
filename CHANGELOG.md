@@ -7,9 +7,18 @@ bundle, land it on another machine, and say what would survive a move to a diffe
 runtime; the hosted transfer flow is unchanged and is still reached by a bare invocation
 and its own flags.
 
+### Package identity
+
+- The package ships as **`@omegas/continuity`** and installs a **`continuity`** binary. The
+  unscoped `omegas-dev` name is retired; [docs/MIGRATION.md](docs/MIGRATION.md) covers what
+  happens to it and what to change on your side. Only the identity moved — no source file,
+  module path or bundle field layout was renamed, and the `omegas.continuity.v1` bundle
+  format is unchanged. Bundles written by this version record `@omegas/continuity` as their
+  generator; readers treat that field as a label and never match on its value.
+
 ### Compatibility, derived rather than maintained
 
-- `omegas-dev compat` prints what would survive moving a configuration between runtimes:
+- `continuity compat` prints what would survive moving a configuration between runtimes:
   a matrix of NATIVE / CONVERT / ADVISE / UNSUPPORTED / UNKNOWN, the losses behind every
   CONVERT, the source-only keys that survive a move but are ignored on the other side, and
   the evidence citation behind each verdict. `report` carries the same table as a section.
@@ -38,7 +47,7 @@ and its own flags.
 
 ### The local HTML report
 
-- `omegas-dev report --html <out.html> --bundle <bundle.ocb.jsonl>` writes ONE
+- `continuity report --html <out.html> --bundle <bundle.ocb.jsonl>` writes ONE
   self-contained page: environment and runtimes, items by kind with provenance and
   portability verdicts, every contested value with its winner and the reason each
   contributor lost, the derived compatibility matrix with its losses, findings, the
@@ -83,10 +92,10 @@ and its own flags.
   asserts zero production dependencies and that no test or fixture file can be published.
 - `docs/RELEASE_CHECKLIST.md` gates publishing, starting with the blocking founder item.
 
-- `omegas-dev diff` previews exactly what importing a bundle would write, and writes
+- `continuity diff` previews exactly what importing a bundle would write, and writes
   nothing at all — no staging directory, no ledger line, no temp file, asserted by a
   byte-comparison of the whole target home before and after.
-- `omegas-dev import` applies nothing without a recorded consent against a specific
+- `continuity import` applies nothing without a recorded consent against a specific
   rendered diff. `--yes-inert` covers inert additions only; an authority change, an
   executable item, or a write that replaces existing content always needs an individual
   answer, and there is no blanket `--yes` to ask for. A non-interactive run with no consent
@@ -98,7 +107,7 @@ and its own flags.
   any bulk accept.
 - Everything executable lands **written but inert**, in the runtime's own disabled idiom —
   `"disabled": true`, `enabled = false`, a `hooks_disabled` block, `skillOverrides: "off"`,
-  `[[skills.config]] enabled = false`, or simply no execute bit. `omegas-dev enable
+  `[[skills.config]] enabled = false`, or simply no execute bit. `continuity enable
   <item_id>` is the separate second action: it shows the current content, verifies it still
   hashes to the value pinned at import, and refuses on drift.
 - The write path stages at `0700` under the target home, snapshots every file it will touch,
@@ -129,7 +138,7 @@ and its own flags.
 - `docs/IMPORT_MODEL.md` documents the trust tiers, consent rules, quarantine and enable
   flow, rollback guarantees and ledger — including an explicit list of what the model does
   not protect against.
-- `omegas-dev scan` and `omegas-dev report` read every declared configuration surface and
+- `continuity scan` and `continuity report` read every declared configuration surface and
   explain it: what is configured, which layer it came from, and why a given value wins.
   Both are read-only, and `src/core/` contains no network module, no subprocess and no
   dependency — each asserted by a test rather than promised.
@@ -154,7 +163,7 @@ and its own flags.
 - Six lints ship, each grounded in a condition found on a real machine — including a hook
   silently muted by a sentinel file, and a permission rule pointing at a directory that no
   longer exists.
-- `omegas-dev export` writes a shareable bundle that carries **no credential value**.
+- `continuity export` writes a shareable bundle that carries **no credential value**.
   Values become `{{OMEGA_REDACTED:<class>:<ref>}}` placeholders; the key name, position,
   class and site count stay in the clear. The same value anywhere on the machine resolves
   to the same `ref`, which is what stops a key pasted into two places from being caught in
@@ -195,7 +204,7 @@ Carried forward and added to, because a release that only lists what works is ad
   the advisory verdict in the first row and UNSUPPORTED in the second. Both are asserted in
   `test/compat.test.js` with the reasoning, and neither expectation was edited to match the
   code.
-- **Coverage gaps are ours, not the runtimes'.** `omegas-dev compat` lists every kind a
+- **Coverage gaps are ours, not the runtimes'.** `continuity compat` lists every kind a
   runtime supports that Continuity does not yet read — Codex hook scripts and keybindings
   today — so a surface nobody has implemented never reads as a capability that does not
   exist.

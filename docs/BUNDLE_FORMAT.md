@@ -2,7 +2,7 @@
 
 `schema_version: omegas.continuity.v1`
 
-This is the published contract for the `.ocb.jsonl` artifact produced by `omegas-dev export`.
+This is the published contract for the `.ocb.jsonl` artifact produced by `continuity export`.
 It is written for someone implementing a reader or writer independently, in any language.
 The reference implementation is `src/core/bundle/` and `src/core/redact/` in this package;
 where this document and the code disagree, the document is the bug.

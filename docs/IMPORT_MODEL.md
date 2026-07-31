@@ -1,6 +1,6 @@
 # The import model
 
-How `omegas-dev` decides what a bundle is allowed to do to your machine, and what it
+How Continuity decides what a bundle is allowed to do to your machine, and what it
 deliberately will not protect you from.
 
 A bundle is a file someone else made. It may have come from your own laptop, from a
@@ -17,9 +17,9 @@ have to pass before any of this ships.
 ## The three commands
 
 ```sh
-omegas-dev diff   --bundle setup.ocb.jsonl        # preview. writes nothing at all
-omegas-dev import --bundle setup.ocb.jsonl        # the same plan, applied item by item
-omegas-dev enable <item_id>                       # turn on one quarantined item
+continuity diff   --bundle setup.ocb.jsonl        # preview. writes nothing at all
+continuity import --bundle setup.ocb.jsonl        # the same plan, applied item by item
+continuity enable <item_id>                       # turn on one quarantined item
 ```
 
 `diff` is read-only in the strongest sense available: it creates no staging directory, no
@@ -115,7 +115,7 @@ You can read exactly what you are about to turn on, in place, in your own editor
 on is a separate command:
 
 ```sh
-omegas-dev enable claude:user:hook:Stop.0.0
+continuity enable claude:user:hook:Stop.0.0
 ```
 
 which shows the current content at that position, verifies that it still hashes to the value

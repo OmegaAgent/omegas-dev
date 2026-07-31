@@ -1,4 +1,4 @@
-// `omegas-dev export` end to end: the artifacts it writes, the modes it writes them with,
+// `continuity export` end to end: the artifacts it writes, the modes it writes them with,
 // the exit codes, and security Gate 5 — a full scan → redact → export cycle with the
 // network and process APIs stubbed to throw.
 

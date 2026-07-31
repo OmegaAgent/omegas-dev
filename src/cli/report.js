@@ -1,4 +1,4 @@
-// `omegas-dev report` — the multi-section read-only report. It answers the three
+// `continuity report` — the multi-section read-only report. It answers the three
 // questions the manifest exists to make answerable without opening a source file:
 // what is configured, where did it come from, and why is this the effective value.
 
@@ -147,7 +147,7 @@ export function renderReport({ result, env, compat = null }) {
       }
     }
     out.push("");
-    out.push("Run `omegas-dev compat` for the per-cell losses, inert keys and evidence.");
+    out.push("Run `continuity compat` for the per-cell losses, inert keys and evidence.");
   }
 
   section("6  FINDINGS");

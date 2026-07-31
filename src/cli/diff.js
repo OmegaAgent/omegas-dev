@@ -1,4 +1,4 @@
-// `omegas-dev diff --bundle <path>` — the preview, and nothing but the preview.
+// `continuity diff --bundle <path>` — the preview, and nothing but the preview.
 //
 // This command writes nothing. Not a staging directory, not a ledger line, not a temp
 // file. That is asserted by a test that byte-compares the whole target home before and
@@ -202,7 +202,7 @@ export function renderPlan({ plan, bundlePath, mode = "preview" }) {
 
   lines.push(
     mode === "preview"
-      ? "Nothing was written. `omegas-dev import --bundle <path>` walks the same plan and asks per item."
+      ? "Nothing was written. `continuity import --bundle <path>` walks the same plan and asks per item."
       : "",
   );
   return `${lines.filter((line, index, all) => !(line === "" && all[index - 1] === "")).join("\n")}\n`;

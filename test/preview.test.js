@@ -149,7 +149,7 @@ test("help documents every flag the parser accepts, and the README matches", asy
 
 test("the CLI prints help and exits cleanly", async () => {
   const { stdout } = await run(process.execPath, [path.join(repoRoot, "bin", "omegas-dev.js"), "--help"]);
-  assert.ok(stdout.startsWith("Usage: npx omegas-dev"));
+  assert.ok(stdout.startsWith("Usage: npx @omegas/continuity"));
   assert.ok(stdout.includes("--help, -h"));
 });
 

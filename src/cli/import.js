@@ -1,4 +1,4 @@
-// `omegas-dev import` and `omegas-dev enable`.
+// `continuity import` and `continuity enable`.
 //
 // The consent flow is the product. Its rules, in the order they bind:
 //
@@ -194,7 +194,7 @@ function renderApply(result) {
     if (disabled.length > 0) {
       lines.push("");
       lines.push("Written DISABLED — read them, then turn each on deliberately:");
-      for (const itemId of disabled) lines.push(`  omegas-dev enable ${itemId}`);
+      for (const itemId of disabled) lines.push(`  continuity enable ${itemId}`);
     }
   } else if (result.status === "nothing_consented") {
     lines.push("Nothing consented to; nothing was written.");

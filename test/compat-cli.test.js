@@ -1,4 +1,4 @@
-// `omegas-dev compat` — the surfacing, not the derivation (that is compat.test.js).
+// `continuity compat` — the surfacing, not the derivation (that is compat.test.js).
 // What matters here is that the command shows the exceptions and the losses instead of
 // only the headline, and that the JSON envelope carries the same facts as the text.
 
@@ -119,7 +119,7 @@ test("the text report folds in the compat section, with the exceptions visible",
   assert.match(text, /no hand-maintained matrix/i);
   assert.match(text, /depart from their kind's headline verdict/);
   assert.match(text, /Losses computed from the items' own unrecognized keys/);
-  assert.match(text, /omegas-dev compat/);
+  assert.match(text, /continuity compat/);
 });
 
 test("an unsurveyed runtime is listed, is never a verified negative, and does not fill the table", async (t) => {

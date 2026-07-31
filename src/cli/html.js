@@ -1,4 +1,4 @@
-// `omegas-dev report --html` — the local, private, self-contained visualizer.
+// `continuity report --html` — the local, private, self-contained visualizer.
 //
 // THREE PROPERTIES, ALL STRUCTURAL RATHER THAN PROMISED:
 //
@@ -64,7 +64,7 @@ function assertRedactedBundle(manifest) {
   if (manifest.schema_version !== SCHEMA_VERSION) {
     throw new NotABundleError(
       `the HTML report renders a redacted bundle only. Expected schema_version ${SCHEMA_VERSION}, got ` +
-        `${JSON.stringify(manifest.schema_version)}. Run \`omegas-dev export\` first — a raw scan result must ` +
+        `${JSON.stringify(manifest.schema_version)}. Run \`continuity export\` first — a raw scan result must ` +
         `never reach a rendering layer.`,
     );
   }

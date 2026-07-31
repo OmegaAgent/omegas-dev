@@ -220,7 +220,7 @@ test("`report --html` without a bundle refuses, and says how to make one", async
   const code = await dispatch(["report", "--html", "/tmp/should-not-exist.html"], io.io);
   assert.equal(code, EXIT.USAGE);
   assert.match(io.stderr(), /renders a redacted bundle/);
-  assert.match(io.stderr(), /omegas-dev export/);
+  assert.match(io.stderr(), /continuity export/);
 });
 
 test("`--html` is rejected on any command that is not report", async () => {

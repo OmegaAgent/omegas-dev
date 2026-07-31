@@ -1,4 +1,4 @@
-// `omegas-dev export` — the one artifact, and it is the redacted one.
+// `continuity export` — the one artifact, and it is the redacted one.
 //
 // Order of operations is the security property (THR §3.5): build the bundle in memory,
 // re-scan the SERIALIZED BYTES with the full detector, and only then touch the disk. A

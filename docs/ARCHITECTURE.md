@@ -1,6 +1,6 @@
 # Architecture
 
-`omegas-dev` reads the configuration of local AI coding agents and explains it: what is
+Continuity reads the configuration of local AI coding agents and explains it: what is
 configured, where it came from, and why a given value is the one in effect. This document
 describes how the reading engine is built and, more importantly, which properties are
 enforced by tests rather than by convention.
@@ -278,7 +278,7 @@ rather than today's.
 
 ## 10. The HTML report is a pure function of a bundle
 
-`omegas-dev report --html <out> --bundle <in>` renders one self-contained page. Two
+`continuity report --html <out> --bundle <in>` renders one self-contained page. Two
 structural properties, both tested:
 
 - **A raw scan cannot reach it.** The renderer takes a bundle path, reads it through the
@@ -330,14 +330,14 @@ subcommand, so the two can never be confused for one another.
 ## 12. The CLI contract
 
 ```
-omegas-dev scan   [--home <dir>] [--root <dir>…] [--json] [--max-file-bytes <n>]
-omegas-dev report [--home <dir>] [--root <dir>…] [--json] [--max-file-bytes <n>]
-omegas-dev report --html <out.html> --bundle <in.ocb.jsonl>
-omegas-dev compat [--home <dir>] [--root <dir>…] [--from <runtime>] [--to <runtime>] [--json]
-omegas-dev export [--home <dir>] [--root <dir>…] [--out <path>] [--payload-policy <p>] [--json]
-omegas-dev diff   --bundle <path> [--home <dir>] [--json]
-omegas-dev import --bundle <path> [--home <dir>] [--yes-inert]
-omegas-dev enable <item_id> [--home <dir>]
+continuity scan   [--home <dir>] [--root <dir>…] [--json] [--max-file-bytes <n>]
+continuity report [--home <dir>] [--root <dir>…] [--json] [--max-file-bytes <n>]
+continuity report --html <out.html> --bundle <in.ocb.jsonl>
+continuity compat [--home <dir>] [--root <dir>…] [--from <runtime>] [--to <runtime>] [--json]
+continuity export [--home <dir>] [--root <dir>…] [--out <path>] [--payload-policy <p>] [--json]
+continuity diff   --bundle <path> [--home <dir>] [--json]
+continuity import --bundle <path> [--home <dir>] [--yes-inert]
+continuity enable <item_id> [--home <dir>]
 ```
 
 Exit codes are part of the published contract and change only with a major version:

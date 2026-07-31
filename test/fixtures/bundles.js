@@ -85,6 +85,9 @@ export function craft({ items = [], extraBlobs = [], bundleId = "ocb_test_0001",
     bundle: {
       id: bundleId,
       created_at: createdAt,
+      // Deliberately NOT the current production values. These bundles arrive from
+      // elsewhere and are read as hostile input, so a foreign generator — here, the
+      // pre-rename name — keeps proving the reader never branches on the field.
       generator: "omegas-dev",
       generator_version: "0.2.0-test",
       digest: "",

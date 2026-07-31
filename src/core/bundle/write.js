@@ -13,7 +13,7 @@ import { computeDigest, DIGEST_ALGO, sha256 } from "./digest.js";
 import { assertEntryName, blobName } from "./names.js";
 
 export const SCHEMA_VERSION = "omegas.continuity.v1";
-export const GENERATOR = "omegas-dev";
+export const GENERATOR = "@omegas/continuity";
 
 export const PAYLOAD_POLICIES = ["definition", "definition+scripts", "full"];
 

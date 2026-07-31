@@ -1,4 +1,4 @@
-// `omegas-dev scan` — the terse view, plus the `--json` envelope both commands share.
+// `continuity scan` — the terse view, plus the `--json` envelope both commands share.
 // The envelope is half of the open/closed seam (adapter-architecture §6.1): the hosted
 // layer consumes exit codes and this shape, and never imports an open-core module.
 

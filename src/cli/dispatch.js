@@ -49,7 +49,7 @@ export function isSubcommand(argv) {
 
 export function commandHelp() {
   return (
-    `Usage: omegas-dev <command> [options]\n\n` +
+    `Usage: continuity <command> [options]\n\n` +
     `  scan     Read every declared configuration surface and print what was found\n` +
     `  report   The same scan, rendered as a multi-section report\n` +
     `  compat   The derived compatibility matrix, its losses, and per-item exceptions\n` +
@@ -79,7 +79,7 @@ export function commandHelp() {
     `they reach the disk (a hit aborts with exit 5 and writes nothing). import applies\n` +
     `nothing without a recorded consent against a specific rendered diff, lands every\n` +
     `executable item disabled, and rolls the whole apply back on any failure. No command\n` +
-    `here uses the network or a subprocess. Run \`omegas-dev\` with no command for the\n` +
+    `here uses the network or a subprocess. Run \`continuity\` with no command for the\n` +
     `hosted transfer flow, which is the only path that contacts a server.\n`
   );
 }
@@ -180,15 +180,15 @@ export function parseArgs(argv) {
   // where a raw scan becomes a shareable artifact (THR §3.5).
   if (options.html && !options.bundle && !options.help) {
     throw new UsageError(
-      "report --html renders a redacted bundle, so it needs --bundle <path>. Run `omegas-dev export` first, " +
-        "then `omegas-dev report --html <out.html> --bundle <bundle.ocb.jsonl>`",
+      "report --html renders a redacted bundle, so it needs --bundle <path>. Run `continuity export` first, " +
+        "then `continuity report --html <out.html> --bundle <bundle.ocb.jsonl>`",
     );
   }
   if (options.bundle && options.command === "report" && !options.html && !options.help) {
     throw new UsageError("report --bundle is only meaningful with --html");
   }
   if (options.command === "enable" && !options.itemId && !options.help) {
-    throw new UsageError("enable requires an item id, e.g. `omegas-dev enable claude:user:hook:Stop.0.0`");
+    throw new UsageError("enable requires an item id, e.g. `continuity enable claude:user:hook:Stop.0.0`");
   }
   return options;
 }

@@ -1,4 +1,4 @@
-// `omegas-dev compat` — the derived compatibility view.
+// `continuity compat` — the derived compatibility view.
 //
 // Nothing in this file decides a verdict. Every cell, every loss and every per-item
 // exception comes out of `core/compat/derive.js`, which computes them from the adapters'

@@ -1,10 +1,10 @@
 {
-  "name": "omegas-dev",
+  "name": "@omegas/continuity",
   "version": "0.2.0",
   "description": "Open-source viewer and transfer tool for personal Claude Code and Codex configs",
   "type": "module",
   "bin": {
-    "omegas-dev": "bin/omegas-dev.js"
+    "continuity": "bin/omegas-dev.js"
   },
   "files": [
     "bin",
@@ -13,6 +13,7 @@
     "docs/BUNDLE_FORMAT.md",
     "docs/IMPORT_MODEL.md",
     "docs/CUTOVER.md",
+    "docs/MIGRATION.md",
     "README.md",
     "SECURITY.md",
     "LICENSE"
@@ -51,6 +52,7 @@
   },
   "keywords": [
     "omegas",
+    "continuity",
     "claude-code",
     "codex",
     "mcp",

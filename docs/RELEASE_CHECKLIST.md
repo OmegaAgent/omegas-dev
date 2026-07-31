@@ -34,7 +34,7 @@ Required, in order:
 1. Rotate both key sets at the provider. Rotation first — editing the file does not
    un-leak a value that has been sitting in a world-readable-adjacent config.
 2. Rewrite both rules to reference environment variable names instead of literals.
-3. Re-run `omegas-dev scan --json` on that machine and confirm the two `critical` findings
+3. Re-run `continuity scan --json` on that machine and confirm the two `critical` findings
    (`secret.in_permission_rule`, `codex.rules.secret_sink`) no longer fire.
 4. Record in the release PR that step 1 happened, with no value and no partial value in
    the text.
@@ -137,5 +137,5 @@ node bin/omegas-dev.js diff    --bundle /tmp/r.ocb.jsonl --home <a second fixtur
 - [ ] Publishing from the canonical repository, not a monorepo copy
       (`founder-decisions.md` §2).
 - [ ] `npm publish` with 2FA, then install the published tarball into a clean directory and
-      run `npx omegas-dev@<version> --help` to confirm what users actually receive.
+      run `npx @omegas/continuity@<version> --help` to confirm what users actually receive.
 - [ ] Tag the commit and attach the CHANGELOG entry to the release.

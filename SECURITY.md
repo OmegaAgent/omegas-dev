@@ -3,9 +3,9 @@
 ## Reporting
 
 Do not open a public issue containing credentials, configuration, transfer codes or
-filesystem details. Email `hello@omegas.dev` with the subject `omegas-dev security`.
+filesystem details. Email `hello@omegas.dev` with the subject `continuity security`.
 Include the minimum reproduction needed, and never send a live secret — a redacted bundle
-(`omegas-dev export`) is usually enough, and is designed for exactly this.
+(`continuity export`) is usually enough, and is designed for exactly this.
 
 If you found a secret of your own while using the tool, rotate it first and report second.
 

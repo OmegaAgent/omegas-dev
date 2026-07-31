@@ -37,11 +37,13 @@ test("only an explicit subcommand routes away from the legacy flow", () => {
 
 test("the legacy flow prints the hosted help, now disclosing the Continuity commands", async () => {
   const { stdout } = await run(process.execPath, [BIN, "--help"]);
-  assert.ok(stdout.startsWith("Usage: npx omegas-dev"));
+  assert.ok(stdout.startsWith("Usage: npx @omegas/continuity"));
   assert.ok(stdout.includes("--help, -h"));
   // It is still the hosted help, not the subcommand help page (which has its own banner).
-  assert.ok(!stdout.startsWith("Usage: omegas-dev <command>"), "the legacy help was replaced by the subcommand page");
+  assert.ok(!stdout.startsWith("Usage: continuity <command>"), "the legacy help was replaced by the subcommand page");
   assert.ok(stdout.includes("Hosted transfer"), "the hosted transfer flow is no longer labelled");
+  // The retired name must not come back into anything a user is told to type.
+  assert.equal(/omegas-dev/.test(stdout), false, "the help still invokes the retired package name");
   // Deduction (b): the subcommands must be discoverable from the top-level help.
   for (const command of ["scan", "report", "compat", "export", "diff", "import", "enable"]) {
     assert.ok(stdout.includes(command), `top-level --help never mentions the ${command} subcommand`);
@@ -50,12 +52,13 @@ test("the legacy flow prints the hosted help, now disclosing the Continuity comm
 
 test("subcommand help is separate and says which path networks", async () => {
   const { stdout } = await run(process.execPath, [BIN, "scan", "--help"]);
-  assert.ok(stdout.startsWith("Usage: omegas-dev <command>"));
+  assert.ok(stdout.startsWith("Usage: continuity <command>"));
   assert.ok(stdout.includes("--home <dir>"));
   assert.ok(stdout.includes("--root <dir>"));
   assert.ok(stdout.includes("--json"));
   assert.match(stdout, /read-only/i);
   assert.match(stdout, /only path that contacts a server/i);
+  assert.equal(/omegas-dev/.test(stdout), false, "the subcommand help still invokes the retired package name");
 });
 
 test("an unknown argument is a usage error, not a scan", async () => {
