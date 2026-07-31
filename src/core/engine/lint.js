@@ -5,7 +5,7 @@
 // Findings are data in the bundle, because "your config has a detectable problem" is a
 // large part of the product's legible value and it has to survive being shared.
 
-import { enumerateStringLeaves } from "./normalize.js";
+import { PROBEABLE_ROOTS, enumerateStringLeaves } from "./normalize.js";
 
 const OPERATORS = {
   has_key: (ctx, rule) => isObject(subject(ctx, rule)) && hasOwn(subject(ctx, rule), rule.key),
@@ -132,7 +132,7 @@ function anyLeaf(value, predicate) {
 
 function* pathsIn(text) {
   for (const [, candidate] of String(text).matchAll(
-    /(?:^|["'`\s=(:,])(\/(?:Users|home|opt|usr|etc|var|private)\/[^\s"'`,;)\]]*)/g,
+    new RegExp(`(?:^|["'\`\\s=(:,])(\\/(?:${PROBEABLE_ROOTS})\\/[^\\s"'\`,;)\\]]*)`, "g"),
   )) {
     yield candidate;
   }

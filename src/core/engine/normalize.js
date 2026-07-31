@@ -440,11 +440,20 @@ function* dotfileReferences(text) {
   for (const [, , candidate] of String(text).matchAll(DOTFILE_REFERENCE)) yield candidate;
 }
 
+/**
+ * The absolute-path roots worth probing. Shared with lint.js on purpose: the lints look
+ * their candidates up in the map the pipeline builds from THIS list, so two copies that
+ * drift apart silently stop finding each other's paths.
+ */
+export const PROBEABLE_ROOTS = "Users|home|opt|usr|etc|var|private|tmp";
+
 /** Absolute-looking path leaves, so the pipeline can probe them once for the lints. */
 export function* absolutePathCandidates(items) {
   for (const item of items) {
     for (const [, value] of stringLeaves(item)) {
-      for (const [match] of String(value).matchAll(/(?:^|["'`\s=(])(\/(?:Users|home|opt|usr|etc|var|private)\/[^\s"'`,;)\]]*)/g)) {
+      for (const [match] of String(value).matchAll(
+        new RegExp(`(?:^|["'\`\\s=(])(\\/(?:${PROBEABLE_ROOTS})\\/[^\\s"'\`,;)\\]]*)`, "g"),
+      )) {
         yield match.replace(/^["'`\s=(]/, "");
       }
     }
