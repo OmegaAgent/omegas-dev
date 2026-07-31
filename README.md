@@ -45,6 +45,13 @@ uploading your files.
 The resulting manifest keeps source and scope visible, so you can understand where each
 item came from instead of receiving an opaque archive.
 
+When an MCP server name appears more than once, `manifest.mcp_conflicts` reports each
+overlapping pair without choosing or activating a winner. `exact_duplicates` contains
+definitions whose public URL or stdio configuration matches exactly. `conflicts` contains
+different definitions and any comparison involving redacted arguments or environment keys,
+because hidden values cannot be proven equal. Each report entry keeps the tool source,
+global or project scope, project label, and source file; secret values are never included.
+
 ## Inspect locally
 
 ```sh

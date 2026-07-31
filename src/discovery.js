@@ -482,6 +482,77 @@ async function collectGlobal(home, claudeConfig) {
   return { context_files: contextFiles, skills: uniqueSkills, mcp_servers: mcpServers };
 }
 
+function mcpIdentity(server) {
+  return server.name.trim().toLocaleLowerCase("en-US");
+}
+
+function hasRedactedDefinition(server) {
+  return server.args_redacted.some((arg) => String(arg).includes("<redacted>"))
+    || String(server.url || "").toLowerCase().includes("redacted")
+    || server.env_keys.length > 0;
+}
+
+function mcpDefinition(server) {
+  return JSON.stringify({
+    transport: server.transport,
+    command: server.command || null,
+    args_redacted: server.args_redacted,
+    url: server.url || null,
+    env_keys: [...server.env_keys].sort(),
+  });
+}
+
+function mcpLocation(server, scope) {
+  return {
+    source: server.source,
+    scope: scope.label,
+    project: scope.project,
+    source_file: server.source_file,
+  };
+}
+
+/** Compare overlapping MCP names without selecting, merging, or exposing a definition. */
+export function buildMcpConflictReport(global, projects) {
+  const grouped = new Map();
+  const scopes = [
+    { label: "global", servers: global.mcp_servers },
+    ...projects.map((project) => ({ label: "project", project: project.source_label, servers: project.mcp_servers })),
+  ];
+  for (const scope of scopes) {
+    for (const server of scope.servers) {
+      const identity = mcpIdentity(server);
+      if (!identity) continue;
+      const entries = grouped.get(identity) || [];
+      entries.push({ server, scope });
+      grouped.set(identity, entries);
+    }
+  }
+
+  const exact_duplicates = [];
+  const conflicts = [];
+  for (const [identity, entries] of grouped) {
+    for (let left = 0; left < entries.length; left += 1) {
+      for (let right = left + 1; right < entries.length; right += 1) {
+        const first = entries[left];
+        const second = entries[right];
+        const comparison = {
+          identity,
+          definitions: [mcpLocation(first.server, first.scope), mcpLocation(second.server, second.scope)],
+        };
+        // Redacted arguments and env values are intentionally unknowable. Even matching public
+        // projections cannot prove those definitions are exact, so report them as conflicts.
+        if (
+          !hasRedactedDefinition(first.server)
+          && !hasRedactedDefinition(second.server)
+          && mcpDefinition(first.server) === mcpDefinition(second.server)
+        ) exact_duplicates.push(comparison);
+        else conflicts.push(comparison);
+      }
+    }
+  }
+  return { exact_duplicates, conflicts };
+}
+
 export async function discoverTransfer({ roots, home, maxDepth = 4 }) {
   const canonicalRoots = [];
   for (const root of roots) {
@@ -518,12 +589,14 @@ export async function discoverTransfer({ roots, home, maxDepth = 4 }) {
   }
   const global = await collectGlobal(home, claudeConfig);
   removeSensitiveFiles(global, warnings);
+  const mcp_conflicts = buildMcpConflictReport(global, projects);
   return {
     manifest: {
       schema_version: "omegas.local-transfer.v1",
       generated_at: new Date().toISOString(),
       global,
       projects,
+      mcp_conflicts,
     },
     envFiles,
     warnings,
