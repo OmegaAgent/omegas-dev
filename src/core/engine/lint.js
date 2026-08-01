@@ -148,7 +148,7 @@ function hasOwn(object, key) {
 
 /**
  * Refusals are findings too. A refused symlink is a reported condition, not an absence:
- * on the surveyed machine this is the difference between "0 Codex skills" and 61
+ * on a surveyed machine this is the difference between "0 Codex skills" and 61
  * visible, correctly-explained nodes (THR §2.1, §4.2 Gap 4).
  */
 function refusalFindings(items, startIndex) {

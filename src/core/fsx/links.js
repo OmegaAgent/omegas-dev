@@ -1,5 +1,5 @@
 // THR §3.1 / manifest §1.4 — three outcomes instead of two. The binary follow/refuse
-// choice is what makes 61 real skills invisible on the surveyed machine; the third
+// choice is what makes 61 real skills invisible on a surveyed machine; the third
 // outcome is a NODE, never a silence.
 
 import path from "node:path";

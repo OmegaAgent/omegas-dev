@@ -376,7 +376,7 @@ export default {
       surface_id: "codex.mcp",
       kind: "mcp_server",
       confidence: "high",
-      evidence: "COD §4.5 — 12 servers on the surveyed machine; [mcp_servers.node_repl.env] carries 16 inline env values",
+      evidence: "COD §4.5 — 12 servers on a surveyed machine; [mcp_servers.node_repl.env] carries 16 inline env values",
       locations: [
         { scope: "system", source_id: "codex.config.system.file", key_path: "mcp_servers.*", match: "embedded" },
         { scope: "user", source_id: "codex.config.user.file", key_path: "mcp_servers.*", match: "embedded" },
@@ -445,7 +445,7 @@ export default {
       surface_id: "codex.prompts",
       kind: "command",
       confidence: "high",
-      evidence: "COD §4.6 / MANUAL:19772-19834 — 'Custom prompts are deprecated. Use skills for reusable instructions.' ~/.codex/prompts is absent on the surveyed machine",
+      evidence: "COD §4.6 / MANUAL:19772-19834 — 'Custom prompts are deprecated. Use skills for reusable instructions.' ~/.codex/prompts is absent on a surveyed machine",
       locations: [{ scope: "user", root_id: "codex_home", path: "${CODEX_HOME}/prompts", match: "glob", glob: "*.md", depth: 1 }],
       format: "md+frontmatter",
       container: "file",
@@ -470,7 +470,7 @@ export default {
       surface_id: "codex.skills.codex_home",
       kind: "skill",
       confidence: "high",
-      evidence: "COD §4.7, §6.1 — 76 skills in ~/.codex/skills on the surveyed machine and the binary contains the literal string /.codex/skills, even though the manual's table omits it",
+      evidence: "COD §4.7, §6.1 — 76 skills in ~/.codex/skills on a surveyed machine and the binary contains the literal string /.codex/skills, even though the manual's table omits it",
       locations: [
         { scope: "user", root_id: "codex_home", path: "${CODEX_HOME}/skills", match: "dir_of", glob: "*/SKILL.md", depth: 2 },
       ],
@@ -514,7 +514,7 @@ export default {
       surface_id: "codex.skills.agents_user",
       kind: "skill",
       confidence: "high",
-      evidence: "COD §4.7 — the manual's discovery table lists $HOME/.agents/skills for USER scope; 12 skills there on the surveyed machine",
+      evidence: "COD §4.7 — the manual's discovery table lists $HOME/.agents/skills for USER scope; 12 skills there on a surveyed machine",
       locations: [
         { scope: "user", root_id: "home", path: "${HOME}/.agents/skills", match: "dir_of", glob: "*/SKILL.md", depth: 2 },
       ],
@@ -545,7 +545,7 @@ export default {
         disabled_form: { mode: "companion_entry", surface_id: "codex.config.user", array_path: "skills.config", match_key: "path", set: { enabled: false } },
       },
       caps: { max_bytes: 1048576 },
-      notes: "This is the DOCUMENTED user-scope location and therefore the default cross-runtime emit target for a Claude skill. Symlinked skill folders are supported and followed by the runtime; Continuity still applies the three-outcome symlink policy (THR §3.1), which is what turns '0 Codex skills' into 61 visible unresolved_link nodes on the surveyed machine.",
+      notes: "This is the DOCUMENTED user-scope location and therefore the default cross-runtime emit target for a Claude skill. Symlinked skill folders are supported and followed by the runtime; Continuity still applies the three-outcome symlink policy (THR §3.1), which is what turns '0 Codex skills' into 61 visible unresolved_link nodes on a surveyed machine.",
     },
     {
       surface_id: "codex.skills.repo",
@@ -906,7 +906,7 @@ export default {
       surface_id: "codex.rules",
       kind: "rule_script",
       confidence: "high",
-      evidence: "COD §4.9, §5.1 — default.rules on the surveyed machine contains a live API key in a curl -H argv, recorded from a TUI allow-list action",
+      evidence: "COD §4.9, §5.1 — default.rules on a surveyed machine contains a live API key in a curl -H argv, recorded from a TUI allow-list action",
       locations: [
         { scope: "user", root_id: "codex_home", path: "${CODEX_HOME}/rules", match: "glob", glob: "*.rules" },
         { scope: "system", root_id: "codex_system", path: "${CODEX_SYSTEM}/rules", match: "glob", glob: "*.rules" },
@@ -978,7 +978,7 @@ export default {
       surface_id: "codex.memories",
       kind: "memory",
       confidence: "high",
-      evidence: "COD §4.11 / MANUAL:22167-22275 — 118 generated files under ~/.codex/memories on the surveyed machine, and the directory is itself a git repository",
+      evidence: "COD §4.11 / MANUAL:22167-22275 — 118 generated files under ~/.codex/memories on a surveyed machine, and the directory is itself a git repository",
       locations: [{ scope: "user", root_id: "codex_home", path: "${CODEX_HOME}/memories", match: "glob", glob: "*.md" }],
       format: "md",
       container: "file",
@@ -1050,7 +1050,7 @@ export default {
       surface_id: "codex.plugins",
       kind: "plugin",
       confidence: "high",
-      evidence: "COD §4.14 / MANUAL:23560 — [plugins.\"<id>@<marketplace>\"] enabled = <bool>; 12 plugins across 4 marketplaces on the surveyed machine",
+      evidence: "COD §4.14 / MANUAL:23560 — [plugins.\"<id>@<marketplace>\"] enabled = <bool>; 12 plugins across 4 marketplaces on a surveyed machine",
       locations: [
         { scope: "system", source_id: "codex.config.system.file", key_path: "plugins.*", match: "embedded" },
         { scope: "user", source_id: "codex.config.user.file", key_path: "plugins.*", match: "embedded" },
@@ -1082,7 +1082,7 @@ export default {
       surface_id: "codex.marketplaces",
       kind: "marketplace",
       confidence: "high",
-      evidence: "COD §4.14 — [marketplaces.<name>] source_type, source, last_updated, last_revision; 4 marketplaces on the surveyed machine",
+      evidence: "COD §4.14 — [marketplaces.<name>] source_type, source, last_updated, last_revision; 4 marketplaces on a surveyed machine",
       locations: [
         { scope: "system", source_id: "codex.config.system.file", key_path: "marketplaces.*", match: "embedded" },
         { scope: "user", source_id: "codex.config.user.file", key_path: "marketplaces.*", match: "embedded" },
@@ -1442,7 +1442,7 @@ export default {
       message: "this MCP entry stores values inline in `env` when the safe name-reference form `env_vars` exists; inline values are copied as-is and are the most common way a token ends up in a shareable file",
       suggested_fix: "move the value to the parent environment and list its NAME in env_vars (or bearer_token_env_var / env_http_headers for the HTTP transport)",
       auto_fixable: true,
-      evidence: "COD §4.5, §5.8 — [mcp_servers.node_repl.env] carries 16 inline env values on the surveyed machine",
+      evidence: "COD §4.5, §5.8 — [mcp_servers.node_repl.env] carries 16 inline env values on a surveyed machine",
     },
     {
       lint_id: "codex.rules.secret_sink",
@@ -1509,7 +1509,7 @@ export default {
       message: "an absolute home path is embedded here: portable as a file, broken as behaviour on a different $HOME",
       suggested_fix: "rewrite against ${CODEX_HOME} or the project root at import time",
       auto_fixable: false,
-      evidence: "COD §5.9 — [projects.\"<abs>\"], [[skills.config]] path, hook command strings, model_instructions_file, log_dir and sqlite_home all carry absolute paths on the surveyed machine",
+      evidence: "COD §5.9 — [projects.\"<abs>\"], [[skills.config]] path, hook command strings, model_instructions_file, log_dir and sqlite_home all carry absolute paths on a surveyed machine",
     },
     {
       lint_id: "shell_env.default_excludes_disabled",
@@ -1586,7 +1586,7 @@ export default {
       match: "${CODEX_HOME}/{sessions,archived_sessions}/**",
       class: "conversation_content",
       severity: "hard",
-      reason: "181 active and 273 archived rollouts on the surveyed machine; each embeds verbatim conversation, the full base instructions and the absolute cwd (COD §4.12)",
+      reason: "181 active and 273 archived rollouts on a surveyed machine; each embeds verbatim conversation, the full base instructions and the absolute cwd (COD §4.12)",
     },
     {
       rule_id: "codex.history",
@@ -1600,7 +1600,7 @@ export default {
       match: "${CODEX_HOME}/*.sqlite",
       class: "conversation_content",
       severity: "hard",
-      reason: "logs_*.sqlite (523 MB on the surveyed machine) and memories_*.sqlite index conversation content (COD §4.10 #6, §5.11)",
+      reason: "logs_*.sqlite (523 MB on a surveyed machine) and memories_*.sqlite index conversation content (COD §4.10 #6, §5.11)",
     },
     {
       rule_id: "codex.memories_store",

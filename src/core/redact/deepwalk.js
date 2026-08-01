@@ -1,5 +1,5 @@
 // THR §3.2 Layer 5 — the parsed tree walked to every leaf, so layers 2-4 reach nested
-// values, array elements and, the case that actually bit the surveyed machine, string
+// values, array elements and, the case that actually bit a surveyed machine, string
 // leaves in arrays that are not env blocks at all (`permissions.allow[]`, THR A1).
 //
 // Plus the one bounded decode pass (T-R10): a span that is valid base64 or percent-encoded

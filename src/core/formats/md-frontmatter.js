@@ -1,7 +1,7 @@
 // Markdown with YAML frontmatter — the SKILL.md / agent / command surface.
 //
 // The point of this parser is that EVERY key survives verbatim. `allowed_tools` (underscore)
-// outnumbers the documented `allowed-tools` 160 to 117 on the surveyed machine (manifest §2.1), so
+// outnumbers the documented `allowed-tools` 160 to 117 on a surveyed machine (manifest §2.1), so
 // a parser that normalizes, drops or "fixes" unknown keys would silently change behaviour on more
 // files than it left alone. Unknown keys land in `frontmatter` and in `key_order` exactly as
 // written; classifying them into recognized/unrecognized is the engine's job, not the parser's.
