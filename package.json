@@ -21,13 +21,13 @@
   "engines": {
     "node": ">=20"
   },
-  "homepage": "https://github.com/OmegaAgent/omegas-dev#readme",
+  "homepage": "https://github.com/OmegaAgent/continuity#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OmegaAgent/omegas-dev.git"
+    "url": "git+https://github.com/OmegaAgent/continuity.git"
   },
   "bugs": {
-    "url": "https://github.com/OmegaAgent/omegas-dev/issues"
+    "url": "https://github.com/OmegaAgent/continuity/issues"
   },
   "author": "Noureddin Bakir",
   "publishConfig": {

@@ -343,7 +343,7 @@ target home rather than `os.homedir()` (`src/core/fsx/paths.js:436`).
 
 ### 9. No forbidden actions — VERIFIED
 
-`git remote -v` unchanged (`https://github.com/OmegaAgent/omegas-dev.git`);
+`git remote -v` unchanged (`https://github.com/OmegaAgent/continuity.git`);
 `continuity/build` has **no upstream** and `git ls-remote origin continuity/build` returns
 nothing — the branch is local and was never pushed; 6 commits ahead of `origin/main`, all
 local; nothing published, merged or deployed. Legacy `src/cli.js` intact; cutover adapter

@@ -48,7 +48,7 @@ Shape of the stub:
 
     npx @omegas/continuity --help
 
-  Nothing was installed. See https://github.com/OmegaAgent/omegas-dev/blob/main/docs/MIGRATION.md
+  Nothing was installed. See https://github.com/OmegaAgent/continuity/blob/main/docs/MIGRATION.md
   ```
 
 Constraints the stub has to respect, because a redirect package is an easy place to do
