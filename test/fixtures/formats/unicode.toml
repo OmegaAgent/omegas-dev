@@ -1,0 +1,8 @@
+# コメント — a comment carrying an em-dash and non-Latin text
+title = "Ωmegas — évidence d'abord"
+tagline = "多言語のテスト"
+plain = "ascii-after-the-multibyte-keys"
+
+[section]
+label = "café"
+count = 3

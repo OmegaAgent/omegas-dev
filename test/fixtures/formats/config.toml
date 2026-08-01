@@ -1,0 +1,71 @@
+# ~/.codex/config.toml shape. Every value here is fake.
+model = "gpt-5-codex"
+model_provider = "openai"
+approval_policy = "on-request"
+startup_timeout_sec = 10.0
+disable_response_storage = false
+
+# dotted keys land in the same table as the bare ones above
+tools.web_search = true
+tools.view_image = false
+
+hex_mask = 0xDEADBEEF
+octal_mode = 0o755
+binary_flags = 0b1010_1101
+big_number = 1_000_000
+negative = -17
+exponent = 6.626e-34
+positive_infinity = inf
+not_a_number = nan
+
+created_at = 2026-07-30T09:15:00Z
+local_day = 2026-07-30
+local_moment = 2026-07-30 09:15:00
+alarm = 07:32:00
+
+[shell_environment_policy]
+inherit = "core"
+ignore_default_excludes = false
+exclude = [
+  "AWS_*",
+  "AZURE_*",
+]
+
+[mcp_servers.slack]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-slack"]
+env = { SLACK_BOT_TOKEN = "xoxb-FAKE-FAKE-FAKE", SLACK_TEAM_ID = "T000FAKE" }
+startup_timeout_sec = 20.5
+
+[mcp_servers.notion]
+command = "npx"
+args = ["-y", "@notionhq/notion-mcp-server"]
+bearer_token_env_var = "NOTION_TOKEN"
+
+[mcp_servers.notion.env]
+NOTION_TOKEN = "ntn_FAKEFAKEFAKE"
+
+[[hooks.PreToolUse]]
+matcher = "Bash"
+command = "./scripts/guard.sh"
+timeout_sec = 5
+
+[[hooks.PreToolUse]]
+matcher = "Write"
+command = 'C:\tools\audit.exe'  # a literal string keeps its backslashes
+timeout_sec = 15
+
+[profiles.review]
+model = "o3"
+approval_policy = "never"
+
+[notice]
+banner = """
+Omegas continuity fixture banner.
+This line ends with a backslash so it continues \
+     onto the same logical line.
+"""
+pattern = '''
+^\d{3}-\d{2}$
+'''
+mixed_array = [1, "two", true, 4.5]

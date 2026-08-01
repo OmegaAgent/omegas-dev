@@ -28,7 +28,7 @@ async function requestJson(url, init = {}) {
     if (response.status === 413) {
       throw new Error(
         "The normalized transfer exceeded Omegas' upload limit. Nothing was uploaded. " +
-        "Update omegas-dev and retry; if it still fails, scan narrower roots with --root.",
+        "Update @omegas/continuity and retry; if it still fails, scan narrower roots with --root.",
       );
     }
     throw new Error(body.error || `API request failed with HTTP ${response.status}`);
@@ -53,7 +53,7 @@ export function createApiClient(baseUrl, { unsafeDevelopmentApi = false } = {}) 
       if (uploadBytes > MAX_UPLOAD_BYTES) {
         throw new Error(
           `The normalized transfer is ${(uploadBytes / (1024 * 1024)).toFixed(1)} MB, above ` +
-          "Omegas' 10 MB upload limit. Nothing was uploaded. Update omegas-dev and retry; " +
+          "Omegas' 10 MB upload limit. Nothing was uploaded. Update @omegas/continuity and retry; " +
           "if it still fails, scan narrower roots with --root.",
         );
       }

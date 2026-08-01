@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "repo_tool": {
+      "command": "npx",
+      "args": [
+        "repo-tool"
+      ]
+    }
+  }
+}

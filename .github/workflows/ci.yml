@@ -10,7 +10,9 @@ permissions:
 
 jobs:
   test:
+    name: test (node ${{ matrix.node }})
     strategy:
+      fail-fast: false
       matrix:
         node: [20, 22, 24]
     runs-on: ubuntu-latest
@@ -23,3 +25,56 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm test
       - run: npm run check
+
+      # Each release gate is a NAMED script, run on its own, so a failure says which
+      # property broke rather than "a test failed somewhere". They overlap with `npm test`
+      # on purpose: the point is legibility, in the log and in the branch protection rules.
+      - name: 'gate: purity - adapters are data, core never networks or spawns'
+        run: npm run gate:purity
+      - name: 'gate: secrets - redaction recall, precision, and the zero-secret bundle'
+        run: npm run gate:secrets
+      - name: 'gate: network - no net imports, a stubbed-network full cycle, no remote refs in the HTML report'
+        run: npm run gate:network
+      - name: 'gate: adversarial - the hostile bundle corpus writes nothing outside staging'
+        run: npm run gate:adversarial
+      - name: 'gate: redteam - surface spoofing, quarantine escape and never-export bypass stay closed'
+        run: npm run gate:redteam
+      - name: 'gate: noop - nothing is applied without consent; a re-import is byte-identical'
+        run: npm run gate:noop
+      - name: 'gate: compat - the derived matrix still matches the researched verdicts'
+        run: npm run gate:compat
+      - name: 'gate: cutover - the legacy-payload projection is still at parity'
+        run: npm run gate:cutover
+      - name: 'gate: property - generated inputs hold the round-trip, containment, redaction and digest invariants'
+        run: npm run gate:property
+      - name: 'gate: release - package contents, version agreement, docs cross-links'
+        run: npm run gate:release
+
+      - name: zero production dependencies
+        run: |
+          test -z "$(npm ls --prod --parseable --depth 1 | tail -n +2)" \
+            || (echo "the package gained a production dependency" && exit 1)
+
+  package:
+    name: package contents
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      # What ships is part of the trust story: no tests, no fixtures, no scratch files.
+      - name: no test or fixture file is published
+        run: |
+          npm pack --dry-run --json > /tmp/pack.json
+          node -e "
+            const files = JSON.parse(require('fs').readFileSync('/tmp/pack.json'))[0].files.map((f) => f.path);
+            const forbidden = files.filter((f) => /^test\//.test(f) || /fixture/i.test(f) || /\.test\.js\$/.test(f));
+            if (forbidden.length) { console.error('these must not publish:', forbidden); process.exit(1); }
+            for (const required of ['README.md', 'SECURITY.md', 'LICENSE', 'bin/omegas-dev.js']) {
+              if (!files.includes(required)) { console.error('missing from the package:', required); process.exit(1); }
+            }
+            console.log(files.length + ' files, none of them tests or fixtures');
+          "
